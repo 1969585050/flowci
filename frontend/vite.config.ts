@@ -9,12 +9,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  clearScreen: false,
+  root: '.',
+  base: './',
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+  },
   server: {
     port: 5173,
-    strictPort: true,
-    watch: {
-      ignored: ['**/src-tauri/**'],
-    },
   },
 })

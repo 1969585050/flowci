@@ -1,0 +1,21 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "FlowCI",
+  "outputfilename": "FlowCI",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev": "npm run dev",
+  "author": {
+    "name": "FlowCI Team"
+  },
+  "info": {
+    "companyName": "FlowCI",
+    "productName": "FlowCI",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright 2024",
+    "comments": "Lightweight Docker build and deploy tool"
+  },
+  "wailsjsdir": "./frontend/src",
+  "version": "2",
+  "outputType": "desktop"
+}
