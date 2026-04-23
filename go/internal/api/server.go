@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/flowci/flowci/internal/api/handlers"
 	"github.com/flowci/flowci/internal/api/middleware"
 	"github.com/flowci/flowci/internal/builder"
@@ -12,7 +12,7 @@ import (
 )
 
 type Server struct {
-	router      *chi.Mux
+	router         *chi.Mux
 	buildHandler   *handlers.BuildHandler
 	deployHandler  *handlers.DeployHandler
 	dockerHandler  *handlers.DockerHandler
@@ -43,11 +43,11 @@ func NewServer(
 }
 
 func (s *Server) setupMiddleware() {
-	s.router.Use(middleware.Logger)
+	s.router.Use(chiMiddleware.Logger)
 	s.router.Use(middleware.ErrorHandler)
-	s.router.Use(middleware.Recoverer)
-	s.router.Use(middleware.RequestID)
-	s.router.Use(middleware.RealIP)
+	s.router.Use(chiMiddleware.Recoverer)
+	s.router.Use(chiMiddleware.RequestID)
+	s.router.Use(chiMiddleware.RealIP)
 }
 
 func (s *Server) setupRoutes() {

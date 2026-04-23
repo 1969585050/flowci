@@ -1,12 +1,14 @@
-use crate::modules::docker::DockerClient;
-use crate::error::Result;
+use crate::commands::http_client::HttpClient;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct DockerStatus {
+pub struct DockerCheckResponse {
     pub connected: bool,
-    pub version: Option<String>,
-    pub error: Option<String>,
+    pub version: String,
+    #[serde(rename = "api_version")]
+    pub api_version: String,
+    pub os: String,
+    pub arch: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -14,7 +16,7 @@ pub struct ImageInfo {
     pub id: String,
     pub tags: Vec<String>,
     pub size: i64,
-    pub created: i64,
+    pub created: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,60 +26,70 @@ pub struct ContainerInfo {
     pub image: String,
     pub state: String,
     pub status: String,
+    pub ports: Vec<PortInfo>,
+    pub created: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PortInfo {
+    #[serde(rename = "host_port")]
+    pub host_port: i32,
+    #[serde(rename = "container_port")]
+    pub container_port: i32,
+    pub protocol: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApiResponse<T> {
+    pub code: i32,
+    pub message: String,
+    pub data: Option<T>,
+}
+
+#[derive(Deserialize)]
+struct ImageListResponse {
+    images: Vec<ImageInfo>,
+    total: i32,
+}
+
+#[derive(Deserialize)]
+struct ContainerListResponse {
+    containers: Vec<ContainerInfo>,
+    total: i32,
 }
 
 #[tauri::command]
-pub async fn check_docker() -> Result<DockerStatus> {
-    match DockerClient::new().await {
-        Ok(docker) => {
-            match docker.ping().await {
-                Ok(_) => Ok(DockerStatus {
-                    connected: true,
-                    version: Some("connected".to_string()),
-                    error: None,
-                }),
-                Err(e) => Ok(DockerStatus {
-                    connected: false,
-                    version: None,
-                    error: Some(e.to_string()),
-                }),
-            }
-        }
-        Err(e) => Ok(DockerStatus {
-            connected: false,
-            version: None,
-            error: Some(e.to_string()),
-        }),
-    }
+pub async fn check_docker() -> Result<DockerCheckResponse, String> {
+    let client = HttpClient::new();
+
+    let response: ApiResponse<DockerCheckResponse> = client
+        .get("/api/v1/docker/check")
+        .await
+        .map_err(|e| format!("Docker check failed: {}", e))?;
+
+    response.data.ok_or_else(|| "No data in response".to_string())
 }
 
 #[tauri::command]
-pub async fn list_images() -> Result<Vec<ImageInfo>> {
-    let docker = DockerClient::new().await?;
-    let images = docker.list_images().await?;
+pub async fn list_images() -> Result<Vec<ImageInfo>, String> {
+    let client = HttpClient::new();
 
-    Ok(images.into_iter().map(|i| {
-        ImageInfo {
-            id: i.id,
-            tags: i.repo_tags,
-            size: i.size,
-            created: i.created,
-        }
-    }).collect())
+    let response: ApiResponse<ImageListResponse> = client
+        .get("/api/v1/docker/images")
+        .await
+        .map_err(|e| format!("List images failed: {}", e))?;
+
+    response.data.map(|r| r.images).ok_or_else(|| "No data".to_string())
 }
 
 #[tauri::command]
-pub async fn list_containers() -> Result<Vec<ContainerInfo>> {
-    let docker = DockerClient::new().await?;
-    let containers = docker.list_containers().await?;
+pub async fn list_containers() -> Result<Vec<ContainerInfo>, String> {
+    let client = HttpClient::new();
 
-    Ok(containers.into_iter().map(|c| {
-        ContainerInfo {
-            id: c.id,
-            names: c.names,
-            image: c.image,
-            state: c.state,
-            status: c.status,
-        }
-    }).collect())
+    let response: ApiResponse<ContainerListResponse> = client
+        .get("/api/v1/docker/containers")
+        .await
+        .map_err(|e| format!("List containers failed: {}", e))?;
+
+    response.data.map(|r| r.containers).ok_or_else(|| "No data".to_string())
 }

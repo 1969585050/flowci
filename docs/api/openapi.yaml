@@ -1,0 +1,637 @@
+openapi: 3.0.3
+info:
+  title: FlowCI API
+  description: Docker image build and deployment API
+  version: 0.1.0
+  contact:
+    name: FlowCI Team
+servers:
+  - url: http://localhost:3847/api/v1
+    description: Development server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /builds:
+    get:
+      summary: List all builds
+      operationId: listBuilds
+      tags:
+        - Builds
+      responses:
+        '200':
+          description: List of builds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildListResponse'
+    post:
+      summary: Create a new build
+      operationId: createBuild
+      tags:
+        - Builds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBuildRequest'
+      responses:
+        '201':
+          description: Build created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /builds/{id}:
+    get:
+      summary: Get build by ID
+      operationId: getBuild
+      tags:
+        - Builds
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Build details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildResponse'
+        '404':
+          description: Build not found
+
+  /builds/{id}/logs:
+    get:
+      summary: Get build logs
+      operationId: getBuildLogs
+      tags:
+        - Builds
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Build logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildLogsResponse'
+
+  /deploys:
+    get:
+      summary: List all deploys
+      operationId: listDeploys
+      tags:
+        - Deploys
+      responses:
+        '200':
+          description: List of deploys
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployListResponse'
+    post:
+      summary: Create a new deploy
+      operationId: createDeploy
+      tags:
+        - Deploys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeployRequest'
+      responses:
+        '201':
+          description: Deploy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResponse'
+
+  /deploys/{id}:
+    get:
+      summary: Get deploy status
+      operationId: getDeployStatus
+      tags:
+        - Deploys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deploy details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeployResponse'
+
+  /deploys/{id}/rollback:
+    post:
+      summary: Rollback deploy
+      operationId: rollbackDeploy
+      tags:
+        - Deploys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rollback successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RollbackResponse'
+
+  /docker/check:
+    get:
+      summary: Check Docker connection
+      operationId: checkDocker
+      tags:
+        - Docker
+      responses:
+        '200':
+          description: Docker connection status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DockerCheckResponse'
+
+  /docker/images:
+    get:
+      summary: List Docker images
+      operationId: listImages
+      tags:
+        - Docker
+      responses:
+        '200':
+          description: List of images
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageListResponse'
+
+  /docker/containers:
+    get:
+      summary: List Docker containers
+      operationId: listContainers
+      tags:
+        - Docker
+      responses:
+        '200':
+          description: List of containers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContainerListResponse'
+
+  /projects:
+    get:
+      summary: List all projects
+      operationId: listProjects
+      tags:
+        - Projects
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+    post:
+      summary: Create a new project
+      operationId: createProject
+      tags:
+        - Projects
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+
+  /projects/{id}:
+    get:
+      summary: Get project by ID
+      operationId: getProject
+      tags:
+        - Projects
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    put:
+      summary: Update project
+      operationId: updateProject
+      tags:
+        - Projects
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        '200':
+          description: Project updated
+    delete:
+      summary: Delete project
+      operationId: deleteProject
+      tags:
+        - Projects
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Project deleted
+
+components:
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: object
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        uptime_seconds:
+          type: integer
+        docker_connected:
+          type: boolean
+
+    BuildRequest:
+      type: object
+      required:
+        - project_id
+        - language
+        - context_path
+        - image_tags
+      properties:
+        project_id:
+          type: string
+        language:
+          type: string
+          enum: [java-maven, java-gradle, nodejs, python, go, php, ruby, dotnet, custom]
+        context_path:
+          type: string
+        dockerfile_path:
+          type: string
+        image_tags:
+          type: array
+          items:
+            type: string
+        build_args:
+          type: object
+          additionalProperties:
+            type: string
+        no_cache:
+          type: boolean
+        pull_base_image:
+          type: boolean
+
+    BuildResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        image_id:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        size:
+          type: integer
+        duration_ms:
+          type: integer
+        status:
+          type: string
+        logs:
+          type: array
+          items:
+            type: string
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+
+    BuildListResponse:
+      type: object
+      properties:
+        builds:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuildResponse'
+        total:
+          type: integer
+
+    BuildLogsResponse:
+      type: object
+      properties:
+        build_id:
+          type: string
+        logs:
+          type: array
+          items:
+            type: string
+
+    DeployRequest:
+      type: object
+      required:
+        - project_id
+        - image_tag
+        - container_name
+      properties:
+        project_id:
+          type: string
+        deployment_type:
+          type: string
+          enum: [compose, single, kubernetes]
+        image_tag:
+          type: string
+        container_name:
+          type: string
+        ports:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortMapping'
+        env_vars:
+          type: object
+          additionalProperties:
+            type: string
+        volumes:
+          type: array
+          items:
+            type: string
+        restart_policy:
+          type: string
+          enum: [no, always, unless-stopped, on-failure]
+        replicas:
+          type: integer
+
+    PortMapping:
+      type: object
+      properties:
+        host_port:
+          type: integer
+        container_port:
+          type: integer
+        protocol:
+          type: string
+          enum: [tcp, udp]
+
+    DeployResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        container_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        ports:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortMapping'
+        created_at:
+          type: string
+          format: date-time
+
+    DeployListResponse:
+      type: object
+      properties:
+        containers:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeployResponse'
+        total:
+          type: integer
+
+    RollbackResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        previous_image_tag:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    DockerCheckResponse:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        version:
+          type: string
+        api_version:
+          type: string
+        os:
+          type: string
+        arch:
+          type: string
+
+    ImageInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        size:
+          type: integer
+        created:
+          type: string
+
+    ImageListResponse:
+      type: object
+      properties:
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageInfo'
+        total:
+          type: integer
+
+    ContainerInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        names:
+          type: array
+          items:
+            type: string
+        image:
+          type: string
+        state:
+          type: string
+        status:
+          type: string
+        ports:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortMapping'
+        created:
+          type: string
+
+    ContainerListResponse:
+      type: object
+      properties:
+        containers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContainerInfo'
+        total:
+          type: integer
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        path:
+          type: string
+        language:
+          type: string
+        build_config:
+          type: object
+        deploy_config:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - path
+        - language
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        language:
+          type: string
+        build_config:
+          type: object
+        deploy_config:
+          type: object
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        language:
+          type: string
+        build_config:
+          type: object
+        deploy_config:
+          type: object
+
+    ProjectListResponse:
+      type: object
+      properties:
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+        total:
+          type: integer

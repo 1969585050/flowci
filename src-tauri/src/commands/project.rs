@@ -1,8 +1,5 @@
-use crate::modules::config::{ConfigManager, ProjectConfig};
-use crate::error::Result;
-use chrono::Utc;
+use crate::commands::http_client::HttpClient;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Project {
@@ -10,7 +7,9 @@ pub struct Project {
     pub name: String,
     pub path: String,
     pub language: String,
+    #[serde(rename = "created_at")]
     pub created_at: String,
+    #[serde(rename = "updated_at")]
     pub updated_at: String,
 }
 
@@ -21,96 +20,88 @@ pub struct CreateProjectRequest {
     pub language: String,
 }
 
-#[tauri::command]
-pub async fn list_projects() -> Result<Vec<Project>> {
-    let config_manager = ConfigManager::new();
-    let config = config_manager.load_config()?;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateProjectRequest {
+    pub name: Option<String>,
+    pub language: Option<String>,
+    #[serde(rename = "build_config")]
+    pub build_config: Option<serde_json::Value>,
+    #[serde(rename = "deploy_config")]
+    pub deploy_config: Option<serde_json::Value>,
+}
 
-    Ok(config.projects.into_iter().map(|p| Project {
-        id: p.id,
-        name: p.name,
-        path: p.path,
-        language: p.language,
-        created_at: p.created_at.to_rfc3339(),
-        updated_at: p.updated_at.to_rfc3339(),
-    }).collect())
+#[derive(Debug, Deserialize)]
+pub struct ApiResponse<T> {
+    pub code: i32,
+    pub message: String,
+    pub data: Option<T>,
+}
+
+#[derive(Deserialize)]
+struct ProjectListResponse {
+    projects: Vec<Project>,
+    total: i32,
 }
 
 #[tauri::command]
-pub async fn create_project(request: CreateProjectRequest) -> Result<Project> {
-    let config_manager = ConfigManager::new();
+pub async fn list_projects() -> Result<Vec<Project>, String> {
+    let client = HttpClient::new();
 
-    let project = ProjectConfig {
-        id: Uuid::new_v4().to_string(),
-        name: request.name.clone(),
-        path: request.path.clone(),
-        language: request.language.clone(),
-        build_config: None,
-        deploy_config: None,
-        created_at: Utc::now(),
-        updated_at: Utc::now(),
-    };
+    let response: ApiResponse<ProjectListResponse> = client
+        .get("/api/v1/projects")
+        .await
+        .map_err(|e| format!("List projects failed: {}", e))?;
 
-    config_manager.add_project(project.clone())?;
-
-    Ok(Project {
-        id: project.id,
-        name: project.name,
-        path: project.path,
-        language: project.language,
-        created_at: project.created_at.to_rfc3339(),
-        updated_at: project.updated_at.to_rfc3339(),
-    })
+    response.data.map(|r| r.projects).ok_or_else(|| "No data".to_string())
 }
 
 #[tauri::command]
-pub async fn get_project(project_id: String) -> Result<Option<Project>> {
-    let config_manager = ConfigManager::new();
-    let config = config_manager.load_config()?;
+pub async fn create_project(request: CreateProjectRequest) -> Result<Project, String> {
+    let client = HttpClient::new();
 
-    let project = config.projects.into_iter()
-        .find(|p| p.id == project_id)
-        .map(|p| Project {
-            id: p.id,
-            name: p.name,
-            path: p.path,
-            language: p.language,
-            created_at: p.created_at.to_rfc3339(),
-            updated_at: p.updated_at.to_rfc3339(),
-        });
+    let response: ApiResponse<Project> = client
+        .post("/api/v1/projects", &request)
+        .await
+        .map_err(|e| format!("Create project failed: {}", e))?;
 
-    Ok(project)
+    response.data.ok_or_else(|| "No data in response".to_string())
 }
 
 #[tauri::command]
-pub async fn update_project(project_id: String, name: String, path: String, language: String) -> Result<Project> {
-    let config_manager = ConfigManager::new();
-    let mut config = config_manager.load_config()?;
+pub async fn get_project(project_id: String) -> Result<Option<Project>, String> {
+    let client = HttpClient::new();
+    let path = format!("/api/v1/projects/{}", project_id);
 
-    let project = config.projects.iter_mut()
-        .find(|p| p.id == project_id)
-        .ok_or_else(|| crate::error::FlowCIError::Project("Project not found".to_string()))?;
+    let response: ApiResponse<Project> = client
+        .get(&path)
+        .await
+        .map_err(|e| format!("Get project failed: {}", e))?;
 
-    project.name = name.clone();
-    project.path = path.clone();
-    project.language = language.clone();
-    project.updated_at = Utc::now();
-
-    let updated_project = project.clone();
-    config_manager.save_config(&config)?;
-
-    Ok(Project {
-        id: updated_project.id,
-        name: updated_project.name,
-        path: updated_project.path,
-        language: updated_project.language,
-        created_at: updated_project.created_at.to_rfc3339(),
-        updated_at: updated_project.updated_at.to_rfc3339(),
-    })
+    Ok(response.data)
 }
 
 #[tauri::command]
-pub async fn delete_project(project_id: String) -> Result<()> {
-    let config_manager = ConfigManager::new();
-    config_manager.remove_project(&project_id)
+pub async fn update_project(project_id: String, request: UpdateProjectRequest) -> Result<Project, String> {
+    let client = HttpClient::new();
+    let path = format!("/api/v1/projects/{}", project_id);
+
+    let response: ApiResponse<Project> = client
+        .put(&path, &request)
+        .await
+        .map_err(|e| format!("Update project failed: {}", e))?;
+
+    response.data.ok_or_else(|| "No data in response".to_string())
+}
+
+#[tauri::command]
+pub async fn delete_project(project_id: String) -> Result<(), String> {
+    let client = HttpClient::new();
+    let path = format!("/api/v1/projects/{}", project_id);
+
+    let _: ApiResponse<serde_json::Value> = client
+        .delete(&path)
+        .await
+        .map_err(|e| format!("Delete project failed: {}", e))?;
+
+    Ok(())
 }

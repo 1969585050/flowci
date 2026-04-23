@@ -11,7 +11,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/client"
 	"github.com/flowci/flowci/pkg/docker"
 )
 
@@ -24,14 +23,14 @@ func NewDeployer(dockerClient *docker.Client) *Deployer {
 }
 
 type DeployConfig struct {
-	ProjectID      string
-	ImageTag       string
-	ContainerName  string
-	Ports          []PortMapping
-	EnvVars        map[string]string
-	Volumes        []string
+	ProjectID     string
+	ImageTag      string
+	ContainerName string
+	Ports         []PortMapping
+	EnvVars       map[string]string
+	Volumes       []string
 	RestartPolicy string
-	Replicas       int
+	Replicas      int
 }
 
 type PortMapping struct {
@@ -41,37 +40,68 @@ type PortMapping struct {
 }
 
 type DeployResult struct {
-	ContainerID string
-	Name        string
-	Status      string
-	Ports       []PortMapping
-	StartedAt   time.Time
+	ID           string
+	ContainerID  string
+	Name         string
+	Image        string
+	Status       string
+	Ports        []PortMapping
+	StartedAt    time.Time
 }
 
-func (d *Deployer) Deploy(ctx context.Context, cfg *DeployConfig) (*DeployResult, error) {
-	dockerCli := d.docker.GetCLI()
+type DeployStatus string
 
-	resp, err := dockerCli.ContainerCreate(ctx, &container.Config{
+const (
+	DeployStatusPending   DeployStatus = "pending"
+	DeployStatusRunning   DeployStatus = "running"
+	DeployStatusStopped  DeployStatus = "stopped"
+	DeployStatusFailed   DeployStatus = "failed"
+	DeployStatusRolling  DeployStatus = "rolling_update"
+)
+
+func (d *Deployer) Deploy(ctx context.Context, cfg *DeployConfig) (*DeployResult, error) {
+	cli := d.docker.GetCLI()
+
+	containerName := cfg.ContainerName
+	if containerName == "" {
+		containerName = fmt.Sprintf("flowci-%s", cfg.ProjectID)
+	}
+
+	envSlice := envMapToSlice(cfg.EnvVars)
+	exposedPorts := exposedPorts(cfg.Ports)
+	portBindings := portBindings(cfg.Ports)
+	mounts := mounts(cfg.Volumes)
+
+	restartPolicy := container.RestartPolicy{
+		Name: cfg.RestartPolicy,
+	}
+	if restartPolicy.Name == "" {
+		restartPolicy.Name = "unless-stopped"
+	}
+
+	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image:        cfg.ImageTag,
-		Env:          envMapToSlice(cfg.EnvVars),
-		ExposedPorts: exposedPorts(cfg.Ports),
+		Env:          envSlice,
+		ExposedPorts: exposedPorts,
 	}, &container.HostConfig{
-		PortBindings:  portBindings(cfg.Ports),
-		Mounts:        mounts(cfg.Volumes),
-		RestartPolicy: container.RestartPolicy{Name: cfg.RestartPolicy},
-	}, nil, nil, cfg.ContainerName)
+		PortBindings:  portBindings,
+		Mounts:       mounts,
+		RestartPolicy: restartPolicy,
+	}, nil, nil, containerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create container: %w", err)
 	}
 
-	if err := dockerCli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
 	return &DeployResult{
+		ID:          generateDeployID(),
 		ContainerID: resp.ID,
-		Name:        cfg.ContainerName,
-		Status:      "running",
+		Name:        containerName,
+		Image:       cfg.ImageTag,
+		Status:      string(DeployStatusRunning),
 		Ports:       cfg.Ports,
 		StartedAt:   time.Now(),
 	}, nil
@@ -99,17 +129,18 @@ func (d *Deployer) DeployCompose(ctx context.Context, projectName, composeFile s
 }
 
 func (d *Deployer) Rollback(ctx context.Context, projectName string) error {
-	dockerCli := d.docker.GetCLI()
+	cli := d.docker.GetCLI()
 
-	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{All: true})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
 		return fmt.Errorf("failed to list containers: %w", err)
 	}
 
 	for _, c := range containers {
 		for _, name := range c.Names {
-			if name == "/"+projectName || name == projectName {
-				if err := dockerCli.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
+			cleanName := trimSlash(name)
+			if cleanName == projectName || cleanName == "/"+projectName {
+				if err := cli.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
 					return fmt.Errorf("failed to remove container: %w", err)
 				}
 			}
@@ -120,9 +151,9 @@ func (d *Deployer) Rollback(ctx context.Context, projectName string) error {
 }
 
 func (d *Deployer) GetStatus(ctx context.Context, projectName string) ([]*DeployResult, error) {
-	dockerCli := d.docker.GetCLI()
+	cli := d.docker.GetCLI()
 
-	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{All: true})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
@@ -130,11 +161,24 @@ func (d *Deployer) GetStatus(ctx context.Context, projectName string) ([]*Deploy
 	var results []*DeployResult
 	for _, c := range containers {
 		for _, name := range c.Names {
-			if name == "/"+projectName || name == projectName {
+			cleanName := trimSlash(name)
+			if cleanName == projectName || cleanName == "/"+projectName {
+				ports := make([]PortMapping, len(c.Ports))
+				for i, p := range c.Ports {
+					ports[i] = PortMapping{
+						HostPort:      int(p.PublicPort),
+						ContainerPort: int(p.PrivatePort),
+						Protocol:      p.Type,
+					}
+				}
+
 				results = append(results, &DeployResult{
+					ID:          c.ID[:12],
 					ContainerID: c.ID,
-					Name:        name,
+					Name:        cleanName,
+					Image:       c.Image,
 					Status:      c.State,
+					Ports:       ports,
 					StartedAt:   c.Created,
 				})
 			}
@@ -145,9 +189,9 @@ func (d *Deployer) GetStatus(ctx context.Context, projectName string) ([]*Deploy
 }
 
 func (d *Deployer) ListContainers(ctx context.Context) ([]*DeployResult, error) {
-	dockerCli := d.docker.GetCLI()
+	cli := d.docker.GetCLI()
 
-	containers, err := dockerCli.ContainerList(ctx, types.ContainerListOptions{All: true})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{All: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers: %w", err)
 	}
@@ -156,17 +200,41 @@ func (d *Deployer) ListContainers(ctx context.Context) ([]*DeployResult, error) 
 	for _, c := range containers {
 		name := ""
 		if len(c.Names) > 0 {
-			name = c.Names[0]
+			name = trimSlash(c.Names[0])
 		}
+
+		ports := make([]PortMapping, len(c.Ports))
+		for i, p := range c.Ports {
+			ports[i] = PortMapping{
+				HostPort:      int(p.PublicPort),
+				ContainerPort: int(p.PrivatePort),
+				Protocol:      p.Type,
+			}
+		}
+
 		results = append(results, &DeployResult{
+			ID:          c.ID[:12],
 			ContainerID: c.ID,
 			Name:        name,
+			Image:       c.Image,
 			Status:      c.State,
+			Ports:       ports,
 			StartedAt:   c.Created,
 		})
 	}
 
 	return results, nil
+}
+
+func (d *Deployer) StopContainer(ctx context.Context, containerID string) error {
+	cli := d.docker.GetCLI()
+	timeout := 10
+	return cli.ContainerStop(ctx, containerID, container.StopOptions{Timeout: &timeout})
+}
+
+func (d *Deployer) RemoveContainer(ctx context.Context, containerID string, force bool) error {
+	cli := d.docker.GetCLI()
+	return cli.ContainerRemove(ctx, containerID, types.ContainerRemoveOptions{Force: force})
 }
 
 func envMapToSlice(env map[string]string) []string {
@@ -217,4 +285,15 @@ func splitVolume(v string) []string {
 		}
 	}
 	return []string{v}
+}
+
+func trimSlash(name string) string {
+	if len(name) > 0 && name[0] == '/' {
+		return name[1:]
+	}
+	return name
+}
+
+func generateDeployID() string {
+	return fmt.Sprintf("deploy-%d", time.Now().UnixNano())
 }

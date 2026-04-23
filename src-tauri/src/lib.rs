@@ -1,8 +1,15 @@
 pub mod error;
-pub mod commands;
+
+pub mod commands {
+    pub mod build;
+    pub mod deploy;
+    pub mod docker;
+    pub mod http_client;
+    pub mod project;
+    pub mod push;
+}
 
 use std::env;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 pub fn get_api_base_url() -> String {
     env::var("FLOWCI_API_URL").unwrap_or_else(|_| "http://localhost:3847".to_string())
@@ -41,7 +48,7 @@ pub fn run() {
             commands::docker::list_images,
             commands::docker::list_containers,
         ])
-        .setup(|app| {
+        .setup(|_app| {
             tracing::info!("FlowCI setup complete");
             Ok(())
         })

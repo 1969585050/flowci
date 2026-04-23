@@ -1,14 +1,16 @@
 package builder
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/flowci/flowci/pkg/docker"
 )
@@ -24,12 +26,12 @@ func NewBuilder(dockerClient *docker.Client) *Builder {
 type BuildConfig struct {
 	ProjectID       string
 	Language        Language
-	ContextPath     string
-	DockerfilePath  string
-	ImageTags       []string
-	BuildArgs       map[string]string
-	NoCache         bool
-	PullBaseImage   bool
+	ContextPath    string
+	DockerfilePath string
+	ImageTags      []string
+	BuildArgs      map[string]string
+	NoCache        bool
+	PullBaseImage  bool
 }
 
 type Language string
@@ -47,11 +49,26 @@ const (
 )
 
 type BuildResult struct {
-	ImageID   string
-	ImageTags []string
-	Size      int64
-	Duration  time.Duration
+	ID          string
+	ImageID     string
+	ImageTags   []string
+	Size        int64
+	Duration    time.Duration
+	Logs        []string
+	Status      BuildStatus
+	StartedAt   time.Time
+	FinishedAt  time.Time
 }
+
+type BuildStatus string
+
+const (
+	BuildStatusPending  BuildStatus = "pending"
+	BuildStatusRunning  BuildStatus = "running"
+	BuildStatusSuccess  BuildStatus = "success"
+	BuildStatusFailed   BuildStatus = "failed"
+	BuildStatusCancelled BuildStatus = "cancelled"
+)
 
 func (b *Builder) Build(ctx context.Context, cfg *BuildConfig) (*BuildResult, error) {
 	dockerCli := b.docker.GetCLI()
@@ -68,8 +85,13 @@ func (b *Builder) Build(ctx context.Context, cfg *BuildConfig) (*BuildResult, er
 		buildArgs[k] = &v
 	}
 
+	dockerfileName := "Dockerfile"
+	if cfg.DockerfilePath != "" {
+		dockerfileName = filepath.Base(cfg.DockerfilePath)
+	}
+
 	opts := types.ImageBuildOptions{
-		Dockerfile: "Dockerfile",
+		Dockerfile: dockerfileName,
 		Tags:       cfg.ImageTags,
 		BuildArgs:  buildArgs,
 		NoCache:    cfg.NoCache,
@@ -77,24 +99,46 @@ func (b *Builder) Build(ctx context.Context, cfg *BuildConfig) (*BuildResult, er
 		PullParent: cfg.PullBaseImage,
 	}
 
+	startTime := time.Now()
 	resp, err := dockerCli.ImageBuild(ctx, tarCtx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("image build failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	imageID := ""
+	var logs []string
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, resp.Body); err != nil {
-		return nil, fmt.Errorf("failed to read build response: %w", err)
+	reader := io.TeeReader(resp.Body, &buf)
+
+	imageID := ""
+	for {
+		chunk := make([]byte, 4096)
+		n, err := reader.Read(chunk)
+		if n > 0 {
+			logLine := string(chunk[:n])
+			logs = append(logs, logLine)
+			if len(imageID) == 0 && resp.OSType != "" {
+				imageID = extractImageID(resp.OSType, resp.ID)
+			}
+		}
+		if err != nil {
+			break
+		}
 	}
 
-	imageID = extractImageID(resp.OSType, resp.ID)
+	if imageID == "" {
+		imageID = extractImageID(resp.OSType, resp.ID)
+	}
 
 	return &BuildResult{
-		ImageID:   imageID,
-		ImageTags: cfg.ImageTags,
-		Duration:  time.Since(time.Now()),
+		ID:         generateBuildID(),
+		ImageID:    imageID,
+		ImageTags:  cfg.ImageTags,
+		Duration:   time.Since(startTime),
+		Logs:       logs,
+		Status:     BuildStatusSuccess,
+		StartedAt:  startTime,
+		FinishedAt: time.Now(),
 	}, nil
 }
 
@@ -197,7 +241,60 @@ CMD ["dotnet", "app.dll"]`,
 }
 
 func createBuildContext(contextPath, dockerfilePath string) (io.ReadCloser, error) {
-	return io.NopCloser(bytes.NewReader([]byte{})), nil
+	if contextPath == "" {
+		return io.NopCloser(bytes.NewReader([]byte{})), nil
+	}
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	err := filepath.Walk(contextPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(contextPath, path)
+		if err != nil {
+			return err
+		}
+
+		if relPath == "." {
+			return nil
+		}
+
+		header, err := tar.FileInfoHeader(info, "")
+		if err != nil {
+			return err
+		}
+		header.Name = relPath
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			data, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer data.Close()
+			if _, err := io.Copy(tw, data); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk context path: %w", err)
+	}
+
+	if err := tw.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close tar writer: %w", err)
+	}
+
+	return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
 }
 
 func extractImageID(osType, id string) string {
@@ -208,4 +305,23 @@ func extractImageID(osType, id string) string {
 		return id[:12]
 	}
 	return id
+}
+
+func generateBuildID() string {
+	return fmt.Sprintf("build-%d", time.Now().UnixNano())
+}
+
+func IsSupportedLanguage(lang string) bool {
+	switch Language(lang) {
+	case LangJavaMaven, LangJavaGradle, LangNodeJS, LangPython, LangGo, LangPHP, LangRuby, LangDotnet, LangCustom:
+		return true
+	}
+	return false
+}
+
+func ValidateLanguage(lang string) error {
+	if !IsSupportedLanguage(lang) {
+		return fmt.Errorf("unsupported language: %s", lang)
+	}
+	return nil
 }
