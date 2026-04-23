@@ -1,15 +1,17 @@
 module github.com/flowci/flowci
 
-go 1.21
+go 1.26
+
+toolchain go1.26.0
 
 require (
-	github.com/docker/docker v24.0.7+incompatible
+	github.com/docker/docker v27.0.0+incompatible
 	github.com/docker/sdk v1.0.0
-	github.com/go-chi/chi/v5 v5.0.12
-	github.com/google/uuid v1.5.0
-	github.com/mattn/go-sqlite3 v1.14.19
+	github.com/go-chi/chi/v5 v5.1.0
+	github.com/google/uuid v1.6.0
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/spf13/afero v1.11.0
-	github.com/spf13/viper v1.18.2
+	github.com/spf13/viper v1.19.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
