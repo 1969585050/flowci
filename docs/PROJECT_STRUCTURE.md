@@ -1,0 +1,164 @@
+# FlowCI Project Structure
+
+```
+flowci/
+├── .github/                          # GitHub 配置
+│   ├── ISSUE_TEMPLATE/               # Issue 模板
+│   │   ├── bug_report.md
+│   │   ├── feature_request.md
+│   │   └── question.md
+│   ├── workflows/                    # GitHub Actions
+│   │   ├── ci.yml                   # 持续集成
+│   │   ├── cd.yml                   # 持续部署
+│   │   └── release.yml             # 发布流程
+│   └── PULL_REQUEST_TEMPLATE.md     # PR 模板
+│
+├── docs/                             # 项目文档
+│   ├── architecture/                 # 架构文档
+│   │   ├── overview.md              # 架构概览
+│   │   ├── api-design.md            # API 设计
+│   │   └── sequence-diagrams/       # 时序图
+│   ├── guides/                      # 开发指南
+│   │   ├── getting-started.md       # 快速开始
+│   │   ├── development.md           # 开发指南
+│   │   ├── deployment.md            # 部署指南
+│   │   └── troubleshooting.md       # 故障排查
+│   ├── api/                         # API 文档
+│   │   └── openapi.yaml            # OpenAPI 规范
+│   ├── standards/                   # 规范文档
+│   │   ├── coding-standards.md     # 编码规范
+│   │   ├── git-workflow.md         # Git 工作流
+│   │   ├── error-codes.md         # 错误码规范
+│   │   └── naming-conventions.md   # 命名约定
+│   └── CHANGELOG.md                # 变更日志
+│
+├── src/                              # Vue 3 前端源码
+│   ├── public/                      # 静态资源
+│   ├── src/
+│   │   ├── api/                    # API 调用层
+│   │   │   ├── client.ts           # HTTP 客户端
+│   │   │   ├── build.ts           # 构建 API
+│   │   │   ├── deploy.ts          # 部署 API
+│   │   │   ├── project.ts         # 项目 API
+│   │   │   └── docker.ts          # Docker API
+│   │   ├── components/             # 公共组件
+│   │   │   ├── common/            # 通用组件
+│   │   │   ├── layout/            # 布局组件
+│   │   │   └── icons/             # 图标组件
+│   │   ├── views/                 # 页面视图
+│   │   │   ├── BuildView.vue
+│   │   │   ├── DeployView.vue
+│   │   │   ├── ProjectsView.vue
+│   │   │   └── SettingsView.vue
+│   │   ├── stores/                 # 状态管理
+│   │   │   ├── build.ts
+│   │   │   ├── deploy.ts
+│   │   │   └── project.ts
+│   │   ├── types/                  # TypeScript 类型
+│   │   │   ├── api.ts             # API 类型
+│   │   │   ├── build.ts           # 构建类型
+│   │   │   └── deploy.ts          # 部署类型
+│   │   ├── utils/                  # 工具函数
+│   │   │   ├── logger.ts          # 日志工具
+│   │   │   └── validators.ts      # 验证工具
+│   │   ├── router/                # 路由配置
+│   │   ├── App.vue
+│   │   └── main.ts
+│   ├── index.html
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── vite.config.ts
+│   └── .env                        # 环境变量
+│
+├── src-tauri/                       # Tauri 桌面应用
+│   ├── src/
+│   │   ├── commands/               # Tauri 命令
+│   │   │   ├── mod.rs
+│   │   │   ├── build.rs           # 构建命令
+│   │   │   ├── deploy.rs          # 部署命令
+│   │   │   ├── docker.rs          # Docker 命令
+│   │   │   ├── project.rs         # 项目命令
+│   │   │   └── http_client.rs     # HTTP 客户端
+│   │   ├── error.rs               # 错误定义
+│   │   ├── lib.rs                 # 库入口
+│   │   └── main.rs                # 程序入口
+│   ├── icons/                     # 应用图标
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+│
+├── go/                              # Go 后端源码
+│   ├── cmd/
+│   │   └── server/                # API 服务器
+│   │       └── main.go
+│   ├── internal/
+│   │   ├── api/                   # API 层
+│   │   │   ├── server.go         # HTTP 服务器
+│   │   │   ├── router.go         # 路由配置
+│   │   │   ├── response.go       # 响应封装
+│   │   │   ├── handlers/         # 处理器
+│   │   │   │   ├── build.go
+│   │   │   │   ├── deploy.go
+│   │   │   │   ├── docker.go
+│   │   │   │   ├── project.go
+│   │   │   │   └── health.go
+│   │   │   └── middleware/       # 中间件
+│   │   │       ├── logging.go
+│   │   │       ├── error.go
+│   │   │       ├── recovery.go
+│   │   │       └── cors.go
+│   │   ├── builder/              # 构建模块
+│   │   │   ├── builder.go
+│   │   │   └── dockerfile.go
+│   │   ├── deployer/             # 部署模块
+│   │   │   ├── deployer.go
+│   │   │   └── compose.go
+│   │   ├── config/               # 配置模块
+│   │   │   ├── config.go
+│   │   │   └── manager.go
+│   │   ├── pipeline/             # 流水线模块
+│   │   │   └── pipeline.go
+│   │   └── docker/               # Docker 客户端
+│   │       └── client.go
+│   ├── pkg/                       # 公共包
+│   │   └── docker/
+│   │       └── client.go
+│   ├── go.mod
+│   └── go.sum
+│
+├── scripts/                        # 脚本
+│   ├── build.sh                   # 构建脚本
+│   ├── run.sh                     # 运行脚本
+│   └── setup.sh                   # 环境设置
+│
+├── .gitignore
+├── .editorconfig
+├── .golangci.yaml                # Go lint 配置
+├── .eslintrc.js                  # ESLint 配置
+├── Makefile                      # Make 任务
+├── README.md                      # 项目说明
+├── CONTRIBUTING.md               # 贡献指南
+├── LICENSE                       # MIT 许可证
+└── CHANGELOG.md                  # 变更日志
+```
+
+## 模块职责
+
+| 目录 | 职责 |
+|------|------|
+| `src/` | Vue 3 前端界面，负责用户交互 |
+| `src-tauri/` | Tauri 桌面应用入口，桥接前端与 Go API |
+| `go/` | Go 后端服务，处理业务逻辑 |
+| `docs/` | 项目文档和规范 |
+| `scripts/` | 构建和部署脚本 |
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 前端框架 | Vue 3 + TypeScript + Naive UI |
+| 桌面框架 | Tauri 2.0 |
+| 后端语言 | Go 1.21+ |
+| 容器编排 | Docker SDK (docker-sdk-go) |
+| HTTP 框架 | Chi (Go) |
+| 状态管理 | Pinia |
+| 构建工具 | Vite |
