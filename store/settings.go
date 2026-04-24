@@ -3,6 +3,9 @@ package store
 import "fmt"
 
 func GetSettings() (map[string]string, error) {
+	if DB == nil {
+		return map[string]string{}, fmt.Errorf("database not initialized")
+	}
 	rows, err := DB.Query(`SELECT key, value FROM settings`)
 	if err != nil {
 		return nil, fmt.Errorf("query settings: %w", err)
@@ -21,6 +24,9 @@ func GetSettings() (map[string]string, error) {
 }
 
 func SaveSettings(key, value string) error {
+	if DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
 	_, err := DB.Exec(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?`, key, value, value)
 	if err != nil {
 		return fmt.Errorf("save setting: %w", err)
