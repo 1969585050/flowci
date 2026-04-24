@@ -1,0 +1,149 @@
+/**
+ * Theme CSS variables — single source of truth for colors, spacing, radii, shadows.
+ * All component styles MUST consume var(--xxx) instead of hard-coded hex.
+ */
+
+:root {
+  /* Brand gradient (primary buttons, accents) */
+  --brand-start: #667eea;
+  --brand-end:   #764ba2;
+  --brand-soft:  rgba(102, 126, 234, 0.12);
+
+  /* Surface & text */
+  --bg-primary:    #f5f7fa;
+  --bg-secondary:  #ffffff;
+  --card-bg:       #ffffff;
+  --text-primary:  #1a1a2e;
+  --text-secondary:#4a5568;
+  --text-muted:    #94a3b8;
+
+  /* Sidebar (always dark) */
+  --bg-sidebar:        linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
+  --text-nav:          #a0a0b0;
+  --text-nav-hover:    #ffffff;
+  --text-nav-active:   #667eea;
+  --bg-nav-active:     rgba(102, 126, 234, 0.2);
+
+  /* Borders & shadows */
+  --border-color:      #e2e8f0;
+  --border-strong:     #cbd5e1;
+  --shadow-sm:         0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:         0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg:         0 12px 40px rgba(0, 0, 0, 0.12);
+
+  /* Semantic colors */
+  --success-bg:   #f0fdf4;
+  --success-fg:   #166534;
+  --success-bd:   #bbf7d0;
+  --danger-bg:    #fef2f2;
+  --danger-fg:    #991b1b;
+  --danger-bd:    #fecaca;
+  --warning-bg:   #fffbeb;
+  --warning-fg:   #92400e;
+  --warning-bd:   #fde68a;
+  --info-bg:      #eff6ff;
+  --info-fg:      #1e40af;
+  --info-bd:      #bfdbfe;
+
+  /* Step type colors (pipeline badges) */
+  --step-build-bg:  #dbeafe;
+  --step-build-fg:  #1d4ed8;
+  --step-push-bg:   #f3e8ff;
+  --step-push-fg:   #7c3aed;
+  --step-deploy-bg: #d1fae5;
+  --step-deploy-fg: #059669;
+
+  /* Spacing scale (rem-based; 1rem = 16px) */
+  --space-1: 0.25rem;  /*  4px */
+  --space-2: 0.5rem;   /*  8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Font sizes */
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 28px;
+
+  /* Animation */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+}
+
+[data-theme="dark"] {
+  --bg-primary:    #0f0f1a;
+  --bg-secondary:  #1a1a2e;
+  --card-bg:       #1a1a2e;
+  --text-primary:  #e2e8f0;
+  --text-secondary:#a0a0b0;
+  --text-muted:    #64748b;
+  --border-color:  #2d3748;
+  --border-strong: #475569;
+  --shadow-sm:     0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md:     0 2px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg:     0 12px 40px rgba(0, 0, 0, 0.4);
+
+  --success-bg:   rgba(34, 197, 94, 0.12);
+  --danger-bg:    rgba(239, 68, 68, 0.12);
+  --warning-bg:   rgba(245, 158, 11, 0.12);
+  --info-bg:      rgba(59, 130, 246, 0.12);
+
+  --step-build-bg:  rgba(59, 130, 246, 0.2);
+  --step-push-bg:   rgba(168, 85, 247, 0.2);
+  --step-deploy-bg: rgba(16, 185, 129, 0.2);
+}
+
+/* Base reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    Roboto, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Shared utility: pretty scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

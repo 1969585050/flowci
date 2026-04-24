@@ -1,6 +1,10 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHashHistory } from 'vue-router'
 import App from './App.vue'
+
+// 全局主题变量（必须在任何组件样式之前加载）
+import './styles/theme.css'
+
 import ProjectsView from './views/ProjectsView.vue'
 import BuildView from './views/BuildView.vue'
 import DeployView from './views/DeployView.vue'
@@ -21,14 +25,12 @@ const routes = [
   { path: '/build-history', component: BuildHistoryView },
   { path: '/build-detail', component: BuildDetailView },
   { path: '/images', component: ImagesView },
-  { path: '/pipelines', component: PipelineView }
+  { path: '/pipelines', component: PipelineView },
 ]
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes
+  routes,
 })
 
-const app = createApp(App)
-app.use(router)
-app.mount('#app')
+createApp(App).use(router).mount('#app')

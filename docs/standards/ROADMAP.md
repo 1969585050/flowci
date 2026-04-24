@@ -191,12 +191,15 @@
 - [x] 重复提交返回 `ErrPipelineBusy`
 - [ ] 前端运行按钮执行中禁用 → 前端迁移阶段做
 
-### 3.5 前端体验 ⏸ 依赖前端迁移
+### 3.5 前端体验 🟡 基础设施完成
 
-- [ ] 主题移除 localStorage，走 SQLite + Pinia
-- [ ] 前端调用 `ListAllPipelines()` 消除 N+1（后端已提供）
-- [ ] Toast 统一，弃用 alert/confirm
-- [ ] `ConfirmDialog.vue` 抽出
+- [x] 主题移除 localStorage，走 SQLite（`useSettings` composable，单一数据源）
+- [x] `ListAllPipelines()` 后端就绪（前端改动等 wails generate）
+- [x] Toast 组件升级（`ToastHost` + `useToast`：4 档色、左条高亮、无障碍）
+- [x] `ConfirmDialog.vue` 抽出（`useConfirm().ask(...)` Promise 接口 + ESC/Enter）
+- [x] `EmptyState.vue` / `LoadingSpinner.vue` 可复用组件
+- [x] `theme.css` 单一 CSS 变量源（色板 / 间距 / 圆角 / 阴影）
+- [ ] views/*.vue 全面切 `import useToast` 替代 `inject('toast')`（现已有兼容 shim，无 UI 破坏但代码待替）
 
 ### 验收标准
 
