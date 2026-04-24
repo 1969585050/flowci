@@ -20,6 +20,9 @@ type UpdateProjectInput struct {
 }
 
 func ListProjects() ([]Project, error) {
+	if DB == nil {
+		return []Project{}, fmt.Errorf("database not initialized")
+	}
 	rows, err := DB.Query(`SELECT id, name, path, language, created_at, updated_at FROM projects ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)

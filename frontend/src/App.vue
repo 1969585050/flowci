@@ -14,6 +14,10 @@
           <span class="nav-icon">🔨</span>
           <span>构建</span>
         </router-link>
+        <router-link to="/pipelines" class="nav-item" active-class="active">
+          <span class="nav-icon">🔧</span>
+          <span>流水线</span>
+        </router-link>
         <router-link to="/deploy" class="nav-item" active-class="active">
           <span class="nav-icon">🌐</span>
           <span>部署</span>
@@ -79,7 +83,7 @@ function applyTheme(theme: string) {
 
 async function loadTheme() {
   try {
-    const settings = await GetSettings()
+    const settings = await GetSettings(null)
     if (settings.theme) {
       applyTheme(settings.theme)
     }

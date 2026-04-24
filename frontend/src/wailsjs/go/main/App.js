@@ -10,8 +10,16 @@ export function CheckDocker(arg1) {
   return window['go']['main']['App']['CheckDocker'](arg1);
 }
 
+export function CreatePipeline(arg1, arg2) {
+  return window['go']['main']['App']['CreatePipeline'](arg1, arg2);
+}
+
 export function CreateProject(arg1, arg2) {
   return window['go']['main']['App']['CreateProject'](arg1, arg2);
+}
+
+export function DeletePipeline(arg1, arg2) {
+  return window['go']['main']['App']['DeletePipeline'](arg1, arg2);
 }
 
 export function DeleteProject(arg1, arg2) {
@@ -24,6 +32,14 @@ export function DeployContainer(arg1, arg2) {
 
 export function DeployWithCompose(arg1, arg2) {
   return window['go']['main']['App']['DeployWithCompose'](arg1, arg2);
+}
+
+export function ExecutePipeline(arg1, arg2) {
+  return window['go']['main']['App']['ExecutePipeline'](arg1, arg2);
+}
+
+export function ExportPipelineToYaml(arg1, arg2) {
+  return window['go']['main']['App']['ExportPipelineToYaml'](arg1, arg2);
 }
 
 export function GenerateCompose(arg1, arg2) {
@@ -50,6 +66,10 @@ export function GetSupportedLanguages(arg1) {
   return window['go']['main']['App']['GetSupportedLanguages'](arg1);
 }
 
+export function ImportPipelineFromYaml(arg1, arg2) {
+  return window['go']['main']['App']['ImportPipelineFromYaml'](arg1, arg2);
+}
+
 export function ListBuildRecords(arg1, arg2) {
   return window['go']['main']['App']['ListBuildRecords'](arg1, arg2);
 }
@@ -60,6 +80,10 @@ export function ListContainers(arg1) {
 
 export function ListImages(arg1) {
   return window['go']['main']['App']['ListImages'](arg1);
+}
+
+export function ListPipelines(arg1, arg2) {
+  return window['go']['main']['App']['ListPipelines'](arg1, arg2);
 }
 
 export function ListProjects(arg1) {

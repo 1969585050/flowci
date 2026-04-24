@@ -15,6 +15,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 	"flowci/store"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed all:dist
@@ -307,6 +308,132 @@ func (a *App) DeletePipeline(ctx context.Context, pipelineId string) bool {
 	return true
 }
 
+func (a *App) ExportPipelineToYaml(ctx context.Context, pipelineId string) string {
+	pipeline, err := store.GetPipeline(pipelineId)
+	if err != nil {
+		return "# Pipeline not found"
+	}
+
+	type YamlStep struct {
+		Type   string `yaml:"type"`
+		Name   string `yaml:"name"`
+		Retry  int    `yaml:"retry,omitempty"`
+		OnFail string `yaml:"on_fail,omitempty"`
+		Config map[string]interface{} `yaml:"config,omitempty"`
+	}
+
+	type YamlConfig struct {
+		Parallel   bool `yaml:"parallel,omitempty"`
+		StopOnFail bool `yaml:"stop_on_fail"`
+	}
+
+	type YamlPipeline struct {
+		Name   string     `yaml:"name"`
+		Config YamlConfig `yaml:"config"`
+		Steps  []YamlStep `yaml:"steps"`
+	}
+
+	steps := make([]YamlStep, len(pipeline.Steps))
+	for i, s := range pipeline.Steps {
+		steps[i] = YamlStep{
+			Type:   s.Type,
+			Name:   s.Name,
+			Retry:  s.Retry,
+			OnFail: s.OnFail,
+			Config: s.Config,
+		}
+	}
+
+	yp := YamlPipeline{
+		Name: pipeline.Name,
+		Config: YamlConfig{
+			Parallel:   pipeline.Config.Parallel,
+			StopOnFail: pipeline.Config.StopOnFail,
+		},
+		Steps: steps,
+	}
+
+	yamlBytes, err := yaml.Marshal(yp)
+	if err != nil {
+		return fmt.Sprintf("# Failed to marshal pipeline: %v", err)
+	}
+	return string(yamlBytes)
+}
+
+func (a *App) ImportPipelineFromYaml(ctx context.Context, data map[string]interface{}) map[string]interface{} {
+	projectId := getString(data, "projectId")
+	yamlContent := getString(data, "yaml")
+
+	if projectId == "" {
+		return map[string]interface{}{"error": "projectId is required"}
+	}
+
+	if yamlContent == "" {
+		return map[string]interface{}{"error": "yaml content is required"}
+	}
+
+	type YamlStep struct {
+		Type   string `yaml:"type"`
+		Name   string `yaml:"name"`
+		Retry  int    `yaml:"retry,omitempty"`
+		OnFail string `yaml:"on_fail,omitempty"`
+		Config map[string]interface{} `yaml:"config,omitempty"`
+	}
+
+	type YamlConfig struct {
+		Parallel   bool `yaml:"parallel,omitempty"`
+		StopOnFail bool `yaml:"stop_on_fail"`
+	}
+
+	type YamlPipeline struct {
+		Name   string     `yaml:"name"`
+		Config YamlConfig `yaml:"config"`
+		Steps  []YamlStep `yaml:"steps"`
+	}
+
+	var yp YamlPipeline
+	if err := yaml.Unmarshal([]byte(yamlContent), &yp); err != nil {
+		return map[string]interface{}{"error": fmt.Sprintf("invalid yaml: %v", err)}
+	}
+
+	steps := make([]store.PipelineStep, len(yp.Steps))
+	validTypes := map[string]bool{"build": true, "push": true, "deploy": true}
+	for i, s := range yp.Steps {
+		if !validTypes[s.Type] {
+			return map[string]interface{}{"error": fmt.Sprintf("invalid step type '%s': must be one of build, push, deploy", s.Type)}
+		}
+		steps[i] = store.PipelineStep{
+			Type:   s.Type,
+			Name:   s.Name,
+			Retry:  s.Retry,
+			OnFail: s.OnFail,
+			Config: s.Config,
+		}
+	}
+
+	input := store.CreatePipelineInput{
+		ProjectID: projectId,
+		Name:     yp.Name,
+		Steps:    steps,
+		Config: store.PipelineConfig{
+			Parallel:   yp.Config.Parallel,
+			StopOnFail: yp.Config.StopOnFail,
+		},
+	}
+
+	pipeline, err := store.CreatePipeline(input)
+	if err != nil {
+		return map[string]interface{}{"error": err.Error()}
+	}
+
+	return map[string]interface{}{
+		"id":         pipeline.ID,
+		"name":       pipeline.Name,
+		"steps":      pipeline.Steps,
+		"created_at": pipeline.CreatedAt.Format(time.RFC3339),
+	}
+}
+
 func (a *App) ExecutePipeline(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
 	pipelineId := getString(data, "pipelineId")
 	projectId := getString(data, "projectId")
@@ -360,7 +487,15 @@ func (a *App) ExecutePipeline(ctx context.Context, data map[string]interface{}) 
 				if reg, ok := step.Config["registry"].(string); ok {
 					registry = reg
 				}
-				result := pushImage(imageName, registry)
+				username := ""
+				if u, ok := step.Config["username"].(string); ok {
+					username = u
+				}
+				password := ""
+				if pwd, ok := step.Config["password"].(string); ok {
+					password = pwd
+				}
+				result := pushImageWithCreds(imageName, registry, username, password)
 				if !result["success"].(bool) {
 					stepErr = fmt.Errorf("%v", result["error"])
 				} else {
@@ -481,15 +616,13 @@ func buildImage(projectId, tag, contextPath string, noCache, pullLatest bool) ma
 }
 
 func pushImage(imageName, registry string) map[string]interface{} {
-	if registry != "" {
-		username := ""
-		password := ""
-		if u, ok := os.LookupEnv("REGISTRY_USERNAME"); ok {
-			username = u
-		}
-		if p, ok := os.LookupEnv("REGISTRY_PASSWORD"); ok {
-			password = p
-		}
+	return pushImageWithCreds(imageName, registry, "", "")
+}
+
+func pushImageWithCreds(imageName, registry, username, password string) map[string]interface{} {
+	targetImage := imageName
+
+	if registry != "" && registry != "docker.io" {
 		if username != "" && password != "" {
 			loginCmd := exec.Command("docker", "login", registry, "-u", username, "--password-stdin")
 			loginCmd.Stdin = strings.NewReader(password)
@@ -497,15 +630,21 @@ func pushImage(imageName, registry string) map[string]interface{} {
 				return map[string]interface{}{"success": false, "error": fmt.Sprintf("login failed: %s", string(out))}
 			}
 		}
-		fullName := registry + "/" + imageName
-		cmd := exec.Command("docker", "tag", imageName, fullName)
+		targetImage = registry + "/" + imageName
+		cmd := exec.Command("docker", "tag", imageName, targetImage)
 		if err := cmd.Run(); err != nil {
 			return map[string]interface{}{"success": false, "error": fmt.Sprintf("tag failed: %v", err)}
 		}
-		imageName = fullName
+		imageName = targetImage
+	} else if registry == "docker.io" && username != "" && password != "" {
+		loginCmd := exec.Command("docker", "login", "-u", username, "--password-stdin")
+		loginCmd.Stdin = strings.NewReader(password)
+		if out, err := loginCmd.CombinedOutput(); err != nil {
+			return map[string]interface{}{"success": false, "error": fmt.Sprintf("docker hub login failed: %s", string(out))}
+		}
 	}
 
-	cmd := exec.Command("docker", "push", imageName)
+	cmd := exec.Command("docker", "push", targetImage)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return map[string]interface{}{"success": false, "error": fmt.Sprintf("push failed: %s", string(output))}
@@ -1024,19 +1163,39 @@ func (a *App) PushImage(ctx context.Context, data map[string]interface{}) (map[s
 	registry := getString(data, "registry")
 	username := getString(data, "username")
 	password := getString(data, "password")
+	targetImage := image
 
-	if username != "" && password != "" {
-		loginCmd := exec.Command("docker", "login", registry, "-u", username, "--password-stdin")
+	if registry != "" && registry != "docker.io" {
+		if username != "" && password != "" {
+			loginCmd := exec.Command("docker", "login", registry, "-u", username, "--password-stdin")
+			loginCmd.Stdin = strings.NewReader(password)
+			if err := loginCmd.Run(); err != nil {
+				return map[string]interface{}{
+					"success": false,
+					"error":   fmt.Sprintf("login failed: %v", err),
+				}, nil
+			}
+		}
+		targetImage = registry + "/" + image
+		cmd := exec.Command("docker", "tag", image, targetImage)
+		if err := cmd.Run(); err != nil {
+			return map[string]interface{}{
+				"success": false,
+				"error":   fmt.Sprintf("tag failed: %v", err),
+			}, nil
+		}
+	} else if registry == "docker.io" && username != "" && password != "" {
+		loginCmd := exec.Command("docker", "login", "-u", username, "--password-stdin")
 		loginCmd.Stdin = strings.NewReader(password)
 		if err := loginCmd.Run(); err != nil {
 			return map[string]interface{}{
 				"success": false,
-				"error":   fmt.Sprintf("login failed: %v", err),
+				"error":   fmt.Sprintf("docker hub login failed: %v", err),
 			}, nil
 		}
 	}
 
-	cmd := exec.Command("docker", "push", image)
+	cmd := exec.Command("docker", "push", targetImage)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return map[string]interface{}{

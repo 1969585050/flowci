@@ -9,6 +9,7 @@ import SettingsView from './views/SettingsView.vue'
 import BuildHistoryView from './views/BuildHistoryView.vue'
 import BuildDetailView from './views/BuildDetailView.vue'
 import ImagesView from './views/ImagesView.vue'
+import PipelineView from './views/PipelineView.vue'
 
 const routes = [
   { path: '/', redirect: '/projects' },
@@ -19,7 +20,8 @@ const routes = [
   { path: '/settings', component: SettingsView },
   { path: '/build-history', component: BuildHistoryView },
   { path: '/build-detail', component: BuildDetailView },
-  { path: '/images', component: ImagesView }
+  { path: '/images', component: ImagesView },
+  { path: '/pipelines', component: PipelineView }
 ]
 
 const router = createRouter({
