@@ -1,10 +1,9 @@
 import { ref, computed, readonly } from 'vue'
 import type { ThemeMode } from '../types'
-// NOTE: 这些 import 在 `wails generate module` 之前可能指向旧路径。
-// 本仓阶段 2 后端把 App 从 main 包迁到了 handler 包；在本机运行一次
-// `wails generate module` 即可让 wailsjs/go/handler/App 就绪。
-// 详细迁移步骤见 docs/standards/FRONTEND_MIGRATION.md。
-// @ts-expect-error wailsjs 绑定需要本地 `wails generate module` 后生效
+// wails CLI 启动时会自动 generate 出 wailsjs/go/handler/App（对应 handler.App）
+// 若本地尚未跑过 `wails dev` / `wails generate module`，该路径不存在，TS 会报错
+// 一旦跑过任一命令，类型即恢复。`@ts-ignore` 使本文件在两种状态下都可编译。
+// @ts-ignore
 import { GetSettings, SaveSettings } from '../wailsjs/go/handler/App'
 
 /**
