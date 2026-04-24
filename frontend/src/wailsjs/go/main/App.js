@@ -22,24 +22,64 @@ export function DeployContainer(arg1, arg2) {
   return window['go']['main']['App']['DeployContainer'](arg1, arg2);
 }
 
+export function DeployWithCompose(arg1, arg2) {
+  return window['go']['main']['App']['DeployWithCompose'](arg1, arg2);
+}
+
+export function GenerateCompose(arg1, arg2) {
+  return window['go']['main']['App']['GenerateCompose'](arg1, arg2);
+}
+
 export function GenerateDockerfile(arg1, arg2) {
   return window['go']['main']['App']['GenerateDockerfile'](arg1, arg2);
+}
+
+export function GetBuildRecord(arg1, arg2) {
+  return window['go']['main']['App']['GetBuildRecord'](arg1, arg2);
+}
+
+export function GetContainerLogs(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetContainerLogs'](arg1, arg2, arg3);
+}
+
+export function GetSettings(arg1) {
+  return window['go']['main']['App']['GetSettings'](arg1);
 }
 
 export function GetSupportedLanguages(arg1) {
   return window['go']['main']['App']['GetSupportedLanguages'](arg1);
 }
 
+export function ListBuildRecords(arg1, arg2) {
+  return window['go']['main']['App']['ListBuildRecords'](arg1, arg2);
+}
+
 export function ListContainers(arg1) {
   return window['go']['main']['App']['ListContainers'](arg1);
+}
+
+export function ListImages(arg1) {
+  return window['go']['main']['App']['ListImages'](arg1);
 }
 
 export function ListProjects(arg1) {
   return window['go']['main']['App']['ListProjects'](arg1);
 }
 
+export function PushImage(arg1, arg2) {
+  return window['go']['main']['App']['PushImage'](arg1, arg2);
+}
+
 export function RemoveContainer(arg1, arg2) {
   return window['go']['main']['App']['RemoveContainer'](arg1, arg2);
+}
+
+export function RemoveImage(arg1, arg2) {
+  return window['go']['main']['App']['RemoveImage'](arg1, arg2);
+}
+
+export function SaveSettings(arg1, arg2) {
+  return window['go']['main']['App']['SaveSettings'](arg1, arg2);
 }
 
 export function StartContainer(arg1, arg2) {
@@ -48,4 +88,8 @@ export function StartContainer(arg1, arg2) {
 
 export function StopContainer(arg1, arg2) {
   return window['go']['main']['App']['StopContainer'](arg1, arg2);
+}
+
+export function UpdateProject(arg1, arg2) {
+  return window['go']['main']['App']['UpdateProject'](arg1, arg2);
 }

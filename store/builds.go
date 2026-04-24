@@ -10,6 +10,7 @@ import (
 
 type BuildResult struct {
 	ID         string     `json:"id"`
+	ProjectID  string     `json:"project_id"`
 	ImageName  string     `json:"image_name"`
 	ImageTag   string     `json:"image_tag"`
 	Status     string     `json:"status"`
@@ -22,6 +23,7 @@ func CreateBuildRecord(projectID, imageName, imageTag string) (BuildResult, erro
 	now := time.Now()
 	r := BuildResult{
 		ID:        uuid.NewString(),
+		ProjectID: projectID,
 		ImageName: imageName,
 		ImageTag:  imageTag,
 		Status:    "building",
@@ -50,9 +52,24 @@ func FinishBuildRecord(id, status, log string) error {
 	return nil
 }
 
+func GetBuildRecord(id string) (BuildResult, error) {
+	var r BuildResult
+	var finishedAt sql.NullTime
+	err := DB.QueryRow(
+		`SELECT id, project_id, image_name, image_tag, status, log, started_at, finished_at FROM build_records WHERE id=?`, id,
+	).Scan(&r.ID, &r.ProjectID, &r.ImageName, &r.ImageTag, &r.Status, &r.Log, &r.StartedAt, &finishedAt)
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("get build record %s: %w", id, err)
+	}
+	if finishedAt.Valid {
+		r.FinishedAt = &finishedAt.Time
+	}
+	return r, nil
+}
+
 func ListBuildRecords(projectID string) ([]BuildResult, error) {
 	rows, err := DB.Query(
-		`SELECT id, image_name, image_tag, status, log, started_at, finished_at FROM build_records WHERE project_id=? ORDER BY started_at DESC LIMIT 50`,
+		`SELECT id, project_id, image_name, image_tag, status, log, started_at, finished_at FROM build_records WHERE project_id=? ORDER BY started_at DESC LIMIT 50`,
 		projectID,
 	)
 	if err != nil {
@@ -64,7 +81,7 @@ func ListBuildRecords(projectID string) ([]BuildResult, error) {
 	for rows.Next() {
 		var r BuildResult
 		var finishedAt sql.NullTime
-		if err := rows.Scan(&r.ID, &r.ImageName, &r.ImageTag, &r.Status, &r.Log, &r.StartedAt, &finishedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.ProjectID, &r.ImageName, &r.ImageTag, &r.Status, &r.Log, &r.StartedAt, &finishedAt); err != nil {
 			return nil, fmt.Errorf("scan build record: %w", err)
 		}
 		if finishedAt.Valid {

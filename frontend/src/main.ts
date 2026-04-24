@@ -6,6 +6,9 @@ import BuildView from './views/BuildView.vue'
 import DeployView from './views/DeployView.vue'
 import PushView from './views/PushView.vue'
 import SettingsView from './views/SettingsView.vue'
+import BuildHistoryView from './views/BuildHistoryView.vue'
+import BuildDetailView from './views/BuildDetailView.vue'
+import ImagesView from './views/ImagesView.vue'
 
 const routes = [
   { path: '/', redirect: '/projects' },
@@ -13,7 +16,10 @@ const routes = [
   { path: '/build', component: BuildView },
   { path: '/deploy', component: DeployView },
   { path: '/push', component: PushView },
-  { path: '/settings', component: SettingsView }
+  { path: '/settings', component: SettingsView },
+  { path: '/build-history', component: BuildHistoryView },
+  { path: '/build-detail', component: BuildDetailView },
+  { path: '/images', component: ImagesView }
 ]
 
 const router = createRouter({

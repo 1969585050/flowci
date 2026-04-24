@@ -79,7 +79,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { GenerateDockerfile, ListProjects, BuildImage } from '../wailsjs/go/main/App'
+
+const route = useRoute()
 
 interface Project {
   id: string
@@ -95,9 +99,13 @@ const languages = [
   { id: 'nodejs', name: 'Node.js', emoji: '🟢' },
   { id: 'go', name: 'Go', emoji: '🔵' },
   { id: 'python', name: 'Python', emoji: '🐍' },
-  { id: 'java', name: 'Java', emoji: '☕' },
+  { id: 'java-maven', name: 'Java (Maven)', emoji: '☕' },
+  { id: 'java-gradle', name: 'Java (Gradle)', emoji: '🅰️' },
+  { id: 'php', name: 'PHP', emoji: '🐘' },
+  { id: 'ruby', name: 'Ruby', emoji: '💎' },
+  { id: 'dotnet', name: '.NET', emoji: '💜' },
   { id: 'rust', name: 'Rust', emoji: '🦀' },
-  { id: 'dotnet', name: '.NET', emoji: '💜' }
+  { id: 'c', name: 'C/C++', emoji: '⚙️' }
 ]
 
 const selectedLang = ref('nodejs')
@@ -126,16 +134,8 @@ async function generateDockerfile() {
   }
   const lang = selectedLang.value
   try {
-    if ((window as any).wails?.Invoke) {
-      const content = await (window as any).wails.Invoke('GenerateDockerfile', lang)
-      dockerfileContent.value = content
-    } else {
-      addLog('Wails 运行时不可用，使用默认模板', 'error')
-      dockerfileContent.value = `FROM alpine:latest
-WORKDIR /app
-COPY . .
-CMD ["./app"]`
-    }
+    const content = await GenerateDockerfile(lang)
+    dockerfileContent.value = content
   } catch (error) {
     addLog(`Dockerfile生成失败: ${error}`, 'error')
     dockerfileContent.value = `FROM alpine:latest
@@ -152,9 +152,7 @@ function addLog(text: string, type = 'info') {
 
 async function loadProjects() {
   try {
-    if ((window as any).wails?.Invoke) {
-      projects.value = await (window as any).wails.Invoke('ListProjects')
-    }
+    projects.value = (await ListProjects()) as Project[]
   } catch {
     console.error('Failed to load projects')
   }
@@ -176,27 +174,22 @@ async function startBuild() {
   addLog(`镜像: ${buildConfig.value.tag}`)
   
   try {
-    if ((window as any).wails?.Invoke) {
-      const result = await (window as any).wails.Invoke('BuildImage', {
-        projectId: selectedProjectId.value,
-        contextPath: buildConfig.value.contextPath,
-        tag: buildConfig.value.tag,
-        noCache: buildConfig.value.noCache,
-        pullLatest: buildConfig.value.pullLatest
+    const result = await BuildImage({
+      projectId: selectedProjectId.value,
+      contextPath: buildConfig.value.contextPath,
+      tag: buildConfig.value.tag,
+      noCache: buildConfig.value.noCache,
+      pullLatest: buildConfig.value.pullLatest
+    })
+    if (result.log) {
+      result.log.split('\n').forEach((line: string) => {
+        if (line.trim()) addLog(line)
       })
-      if (result.log) {
-        result.log.split('\n').forEach((line: string) => {
-          if (line.trim()) addLog(line)
-        })
-      }
-      if (result.success) {
-        addLog(`构建成功！镜像: ${result.image_name}:${result.image_tag}`, 'success')
-      } else {
-        addLog(`构建失败: ${result.error}`, 'error')
-      }
+    }
+    if (result.success) {
+      addLog(`构建成功！镜像: ${result.image_name}:${result.image_tag}`, 'success')
     } else {
-      await new Promise(resolve => setTimeout(resolve, 3000))
-      addLog('模拟构建完成！', 'success')
+      addLog(`构建失败: ${result.error}`, 'error')
     }
   } catch (e) {
     addLog(`构建失败: ${e}`, 'error')
@@ -205,9 +198,25 @@ async function startBuild() {
   building.value = false
 }
 
+watch(selectedProjectId, (newId) => {
+  if (!newId) return
+  const project = projects.value.find(p => p.id === newId)
+  if (project) {
+    buildConfig.value.contextPath = project.path
+    selectedLang.value = project.language
+    generateDockerfile()
+  }
+})
+
 onMounted(() => {
-  loadProjects()
-  generateDockerfile()
+  loadProjects().then(() => {
+    const projectId = route.query.projectId as string
+    if (projectId && projects.value.some(p => p.id === projectId)) {
+      selectedProjectId.value = projectId
+    } else {
+      generateDockerfile()
+    }
+  })
 })
 </script>
 
@@ -218,21 +227,21 @@ onMounted(() => {
 
 h1 {
   font-size: 28px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 24px;
 }
 
 .card {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
   margin-bottom: 20px;
 }
 
 .card h3 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 16px;
 }
 
@@ -247,7 +256,7 @@ h1 {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
@@ -288,14 +297,16 @@ h1 {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .form-group input {
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--card-bg, white);
+  color: var(--text-primary, #333);
   transition: border-color 0.2s;
 }
 
@@ -307,10 +318,10 @@ h1 {
 .project-select {
   width: 100%;
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
-  background: white;
+  background: var(--card-bg, white);
   cursor: pointer;
   transition: border-color 0.2s;
 }

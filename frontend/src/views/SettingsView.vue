@@ -15,6 +15,33 @@
     </div>
 
     <div class="card">
+      <h3>主题设置</h3>
+      <div class="theme-toggle">
+        <button
+          class="theme-btn"
+          :class="{ active: settings.theme === 'system' }"
+          @click="setTheme('system')"
+        >
+          💻 跟随系统
+        </button>
+        <button
+          class="theme-btn"
+          :class="{ active: settings.theme === 'dark' }"
+          @click="setTheme('dark')"
+        >
+          🌙 深色
+        </button>
+        <button
+          class="theme-btn"
+          :class="{ active: settings.theme === 'light' }"
+          @click="setTheme('light')"
+        >
+          ☀️ 浅色
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>默认配置</h3>
       <div class="form-group">
         <label>默认镜像仓库</label>
@@ -39,7 +66,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, inject, onMounted } from 'vue'
+import { CheckDocker, GetSettings, SaveSettings } from '../wailsjs/go/main/App'
+
+const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
+const themeContext = inject('theme') as { current: { value: string }; setTheme: (theme: string) => void }
 
 const dockerStatus = ref({
   status: 'checking',
@@ -49,8 +80,29 @@ const dockerStatus = ref({
 
 const settings = ref({
   defaultRegistry: 'docker.io',
-  defaultWorkdir: '/workspace'
+  defaultWorkdir: '/workspace',
+  theme: 'system'
 })
+
+async function loadSettings() {
+  try {
+    const result = await GetSettings()
+    if (result.defaultRegistry) settings.value.defaultRegistry = result.defaultRegistry
+    if (result.defaultWorkdir) settings.value.defaultWorkdir = result.defaultWorkdir
+    if (result.theme) {
+      settings.value.theme = result.theme
+      themeContext?.setTheme(result.theme)
+    }
+  } catch (e) {
+    console.error('Failed to load settings:', e)
+  }
+}
+
+function setTheme(theme: string) {
+  settings.value.theme = theme
+  themeContext?.setTheme(theme)
+  saveSettings()
+}
 
 async function checkDocker() {
   dockerStatus.value = {
@@ -60,20 +112,11 @@ async function checkDocker() {
   }
   
   try {
-    if ((window as any).wails?.Invoke) {
-      const result = await (window as any).wails.Invoke('CheckDocker')
-      dockerStatus.value = {
-        status: result.connected ? 'connected' : 'disconnected',
-        text: result.connected ? '已连接' : '未连接',
-        version: result.version || ''
-      }
-    } else {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      dockerStatus.value = {
-        status: 'connected',
-        text: '已连接',
-        version: '24.0.0'
-      }
+    const result = await CheckDocker()
+    dockerStatus.value = {
+      status: result.connected ? 'connected' : 'disconnected',
+      text: result.connected ? '已连接' : '未连接',
+      version: result.version || ''
     }
   } catch (e) {
     dockerStatus.value = {
@@ -84,12 +127,22 @@ async function checkDocker() {
   }
 }
 
-function saveSettings() {
-  alert('设置已保存！')
+async function saveSettings() {
+  try {
+    await SaveSettings({
+      defaultRegistry: settings.value.defaultRegistry,
+      defaultWorkdir: settings.value.defaultWorkdir,
+      theme: settings.value.theme
+    })
+    toast?.success('设置已保存！')
+  } catch (e) {
+    toast?.error(`保存失败: ${e}`)
+  }
 }
 
 onMounted(() => {
   checkDocker()
+  loadSettings()
 })
 </script>
 
@@ -100,21 +153,57 @@ onMounted(() => {
 
 h1 {
   font-size: 28px;
-  color: #1a1a2e;
   margin-bottom: 24px;
 }
 
 .card {
-  background: white;
+  background: var(--card-bg, #fff);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
+  margin-bottom: 20px;
+}
+
+.theme-toggle {
+  display: flex;
+  gap: 12px;
+}
+
+.theme-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary, #666);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.theme-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+  color: white;
+}
+
+.card {
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
   margin-bottom: 20px;
 }
 
 .card h3 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 16px;
 }
 
@@ -152,7 +241,7 @@ h1 {
 
 .version-info {
   margin-top: 12px;
-  color: #666;
+  color: var(--text-secondary, #666);
   font-size: 14px;
 }
 
@@ -166,14 +255,16 @@ h1 {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .form-group input {
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--card-bg, #fff);
+  color: var(--text-primary, #333);
   transition: border-color 0.2s;
 }
 
@@ -216,7 +307,7 @@ h1 {
 }
 
 .about-info p {
-  color: #666;
+  color: var(--text-secondary, #666);
   margin-bottom: 8px;
 }
 </style>

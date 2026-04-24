@@ -39,8 +39,33 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-header-compact">
+        <h3>Docker Compose</h3>
+        <label class="toggle">
+          <input v-model="useCompose" type="checkbox" />
+          <span>使用 docker-compose 部署</span>
+        </label>
+      </div>
+      <div v-if="useCompose" class="compose-section">
+        <div class="form-group">
+          <label>工作目录 (docker-compose.yml 保存位置)</label>
+          <input v-model="composeWorkdir" type="text" placeholder="." />
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label>docker-compose.yml 预览</label>
+            <button class="btn-small" @click="generateCompose">重新生成</button>
+          </div>
+          <div class="compose-preview">
+            <pre>{{ composePreview || '点击"重新生成"生成 Compose 文件' }}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <button class="btn-primary btn-large" @click="deployContainer" :disabled="deploying">
-      {{ deploying ? '部署中...' : '开始部署' }}
+      {{ deploying ? '部署中...' : (useCompose ? '使用 Compose 部署' : '开始部署') }}
     </button>
 
     <div class="card" style="margin-top: 24px;">
@@ -69,10 +94,30 @@
             <div class="container-image">{{ container.image }}</div>
           </div>
           <div class="container-actions">
+            <button class="btn-action" @click="viewLogs(container)">日志</button>
             <button v-if="container.status === 'running'" class="btn-action" @click="stopContainer(container.id)">停止</button>
             <button v-else class="btn-action" @click="startContainer(container.id)">启动</button>
             <button class="btn-action btn-danger" @click="removeContainer(container.id)">删除</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showLogDialog" class="dialog-overlay" @click.self="showLogDialog = false">
+      <div class="dialog log-dialog">
+        <div class="dialog-header">
+          <h3>容器日志 - {{ logContainer.name }}</h3>
+          <button class="close-btn" @click="showLogDialog = false">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div v-if="logLoading" class="loading-inline">
+            <div class="spinner-small"></div>
+            <span>加载日志中...</span>
+          </div>
+          <pre v-else class="log-content">{{ logContent || '(日志为空)' }}</pre>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-outline" @click="showLogDialog = false">关闭</button>
         </div>
       </div>
     </div>
@@ -81,6 +126,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
+import { DeployContainer, ListContainers, StartContainer, StopContainer, RemoveContainer, GetContainerLogs, GenerateCompose, DeployWithCompose } from '../wailsjs/go/main/App'
 
 interface Container {
   id: string
@@ -105,36 +151,54 @@ const deployConfig = ref({
   env: 'NODE_ENV=production\nPORT=3000'
 })
 
+const useCompose = ref(false)
+const composePreview = ref('')
+const composeWorkdir = ref('')
+
+const showLogDialog = ref(false)
+const logContainer = ref({ name: '', id: '' })
+const logContent = ref('')
+const logLoading = ref(false)
+
 async function deployContainer() {
   if (deploying.value) return
   deploying.value = true
-  
+
   try {
-    if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('DeployContainer', deployConfig.value)
+    if (useCompose.value) {
+      const result = await DeployWithCompose({
+        compose: composePreview.value,
+        workdir: composeWorkdir.value || '.'
+      })
+      if (result.success) {
+        toast?.success('Docker Compose 部署成功！')
+      } else {
+        toast?.error(`部署失败: ${result.error || result.message}`)
+      }
     } else {
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await DeployContainer(deployConfig.value)
+      toast?.success('部署成功！')
     }
-    toast?.success('部署成功！')
     await refreshContainers()
   } catch (e) {
     toast?.error(`部署失败: ${e}`)
   }
-  
+
   deploying.value = false
+}
+
+async function generateCompose() {
+  try {
+    composePreview.value = await GenerateCompose(deployConfig.value)
+  } catch (e) {
+    toast?.error(`生成 Compose 文件失败: ${e}`)
+  }
 }
 
 async function refreshContainers() {
   containersLoading.value = true
   try {
-    if ((window as any).wails?.Invoke) {
-      containers.value = await (window as any).wails.Invoke('ListContainers')
-    } else {
-      containers.value = [
-        { id: '1', name: 'my-app-1', image: 'my-app:latest', status: 'running', statusText: '运行中' },
-        { id: '2', name: 'my-db', image: 'postgres:15', status: 'running', statusText: '运行中' }
-      ]
-    }
+    containers.value = await ListContainers()
   } catch (e) {
     console.error('Failed to load containers:', e)
   }
@@ -143,9 +207,7 @@ async function refreshContainers() {
 
 async function startContainer(id: string) {
   try {
-    if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('StartContainer', id)
-    }
+    await StartContainer(id)
     toast?.success('容器已启动')
     await refreshContainers()
   } catch (e) {
@@ -155,9 +217,7 @@ async function startContainer(id: string) {
 
 async function stopContainer(id: string) {
   try {
-    if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('StopContainer', id)
-    }
+    await StopContainer(id)
     toast?.success('容器已停止')
     await refreshContainers()
   } catch (e) {
@@ -168,14 +228,25 @@ async function stopContainer(id: string) {
 async function removeContainer(id: string) {
   if (!confirm('确定要删除此容器吗？')) return
   try {
-    if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('RemoveContainer', id)
-    }
+    await RemoveContainer(id)
     toast?.success('容器已删除')
     await refreshContainers()
   } catch (e) {
     toast?.error(`删除失败: ${e}`)
   }
+}
+
+async function viewLogs(container: Container) {
+  logContainer.value = { name: container.name, id: container.id }
+  logContent.value = ''
+  showLogDialog.value = true
+  logLoading.value = true
+  try {
+    logContent.value = await GetContainerLogs(container.id, 200)
+  } catch (e) {
+    logContent.value = `获取日志失败: ${e}`
+  }
+  logLoading.value = false
 }
 
 onMounted(() => {
@@ -190,20 +261,20 @@ onMounted(() => {
 
 h1 {
   font-size: 28px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 24px;
 }
 
 .card {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
 }
 
 .card h3 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 16px;
 }
 
@@ -223,16 +294,18 @@ h1 {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--card-bg, white);
+  color: var(--text-primary, #333);
   transition: border-color 0.2s;
 }
 
@@ -284,13 +357,13 @@ h1 {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: #999;
+  color: var(--text-secondary, #999);
 }
 
 .spinner-small {
   width: 24px;
   height: 24px;
-  border: 3px solid #e0e0e0;
+  border: 3px solid var(--border-color, #e0e0e0);
   border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -310,7 +383,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: #f8f9ff;
+  background: var(--bg-primary, #f8f9ff);
   border-radius: 8px;
   margin-bottom: 12px;
 }
@@ -322,7 +395,7 @@ h1 {
 .container-name {
   font-size: 16px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 4px;
 }
 
@@ -348,7 +421,7 @@ h1 {
 
 .container-image {
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .container-actions {
@@ -362,8 +435,8 @@ h1 {
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  background: #e0e0e0;
-  color: #333;
+  background: var(--border-color, #e0e0e0);
+  color: var(--text-primary, #333);
 }
 
 .btn-action:hover {
@@ -377,5 +450,148 @@ h1 {
 
 .btn-danger:hover {
   background: #fecaca;
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: var(--card-bg, white);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.log-dialog {
+  width: 700px;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+}
+
+.dialog-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: var(--text-primary, #333);
+}
+
+.dialog-body {
+  padding: 16px 24px;
+  flex: 1;
+  overflow: auto;
+  min-height: 200px;
+  max-height: 50vh;
+}
+
+.log-content {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px;
+  border-top: 1px solid var(--border-color, #f0f0f0);
+}
+
+.card-header-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-header-compact h3 {
+  margin-bottom: 0;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.compose-section {
+  margin-top: 16px;
+}
+
+.compose-preview {
+  background: #1e1e2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.compose-preview pre {
+  color: #a5b6cf;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transition: all 0.2s;
+}
+
+.btn-small:hover {
+  transform: translateY(-1px);
 }
 </style>

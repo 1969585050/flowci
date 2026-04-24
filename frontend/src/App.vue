@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="app" :class="themeClass">
     <div class="sidebar">
       <div class="logo">
         <span class="logo-icon">🚀</span>
@@ -17,6 +17,10 @@
         <router-link to="/deploy" class="nav-item" active-class="active">
           <span class="nav-icon">🌐</span>
           <span>部署</span>
+        </router-link>
+        <router-link to="/images" class="nav-item" active-class="active">
+          <span class="nav-icon">🗃️</span>
+          <span>镜像</span>
         </router-link>
         <router-link to="/push" class="nav-item" active-class="active">
           <span class="nav-icon">📤</span>
@@ -36,14 +40,70 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide } from 'vue'
+import { ref, provide, onMounted, computed, watch } from 'vue'
 import Toast from './components/Toast.vue'
+import { GetSettings, SaveSettings } from './wailsjs/go/main/App'
 
 const toastRef = ref<InstanceType<typeof Toast>>()
+const currentTheme = ref('dark')
+
 provide('toast', {
   success(msg: string) { toastRef.value?.addToast('success', msg) },
   error(msg: string) { toastRef.value?.addToast('error', msg) },
   info(msg: string) { toastRef.value?.addToast('info', msg) }
+})
+
+provide('theme', {
+  current: currentTheme,
+  isDark: computed(() => currentTheme.value === 'dark'),
+  setTheme: (theme: string) => {
+    currentTheme.value = theme
+    document.documentElement.setAttribute('data-theme', theme)
+  }
+})
+
+const themeClass = computed(() => `theme-${currentTheme.value}`)
+
+function getSystemTheme(): string {
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+  return 'light'
+}
+
+function applyTheme(theme: string) {
+  const actualTheme = theme === 'system' ? getSystemTheme() : theme
+  currentTheme.value = actualTheme
+  document.documentElement.setAttribute('data-theme', actualTheme)
+}
+
+async function loadTheme() {
+  try {
+    const settings = await GetSettings()
+    if (settings.theme) {
+      applyTheme(settings.theme)
+    }
+  } catch (e) {
+    console.error('Failed to load theme:', e)
+    applyTheme('dark')
+  }
+}
+
+function setupSystemThemeListener() {
+  if (window.matchMedia) {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    mediaQuery.addEventListener('change', () => {
+      const settings_val = localStorage.getItem('flowci_theme')
+      if (settings_val === 'system') {
+        applyTheme('system')
+      }
+    })
+  }
+}
+
+onMounted(() => {
+  loadTheme()
+  setupSystemThemeListener()
 })
 </script>
 
@@ -54,10 +114,52 @@ provide('toast', {
   box-sizing: border-box;
 }
 
+:root {
+  --bg-primary: #f5f5f5;
+  --bg-secondary: #ffffff;
+  --bg-sidebar: linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-nav: #a0a0b0;
+  --text-nav-hover: #ffffff;
+  --text-nav-active: #667eea;
+  --border-color: #e0e0e0;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  --card-bg: #ffffff;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-sidebar: linear-gradient(180deg, #1a1a2e 0%, #2d2d44 100%);
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a5568;
+  --text-nav: #a0a0b0;
+  --text-nav-hover: #ffffff;
+  --text-nav-active: #667eea;
+  --border-color: #e2e8f0;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --card-bg: #ffffff;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-sidebar: linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
+  --text-primary: #e2e8f0;
+  --text-secondary: #a0a0b0;
+  --text-nav: #a0a0b0;
+  --text-nav-hover: #ffffff;
+  --text-nav-active: #667eea;
+  --border-color: #2d3748;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --card-bg: #1a1a2e;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: #f5f5f5;
-  color: #333;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 #app {
@@ -65,9 +167,29 @@ body {
   height: 100vh;
 }
 
+.theme-dark {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --text-primary: #e2e8f0;
+  --text-secondary: #a0a0b0;
+  --border-color: #2d3748;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --card-bg: #1a1a2e;
+}
+
+.theme-light {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a5568;
+  --border-color: #e2e8f0;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --card-bg: #ffffff;
+}
+
 .sidebar {
   width: 240px;
-  background: linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
+  background: var(--bg-sidebar);
   color: #fff;
   display: flex;
   flex-direction: column;

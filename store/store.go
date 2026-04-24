@@ -75,6 +75,20 @@ func migrate() error {
 			finished_at DATETIME,
 			FOREIGN KEY (project_id) REFERENCES projects(id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE TABLE IF NOT EXISTS pipelines (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			steps TEXT NOT NULL DEFAULT '[]',
+			config TEXT NOT NULL DEFAULT '{}',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (project_id) REFERENCES projects(id)
+		)`,
 	}
 
 	for _, q := range queries {

@@ -87,6 +87,76 @@ func (a *App) ListProjects(ctx context.Context) []map[string]interface{} {
 	return result
 }
 
+func (a *App) ListImages(ctx context.Context) []map[string]interface{} {
+	cmd := exec.Command("docker", "images", "--format", "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedAt}}")
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("Failed to list docker images: %v\n", err)
+		return []map[string]interface{}{}
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	images := make([]map[string]interface{}, 0)
+
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "|")
+		if len(parts) >= 5 {
+			images = append(images, map[string]interface{}{
+				"id":         parts[0],
+				"repository": parts[1],
+				"tag":        parts[2],
+				"size":       parts[3],
+				"created_at": parts[4],
+			})
+		}
+	}
+
+	return images
+}
+
+func (a *App) RemoveImage(ctx context.Context, imageId string) map[string]interface{} {
+	cmd := exec.Command("docker", "rmi", "-f", imageId)
+	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+
+	if err != nil {
+		if strings.Contains(outputStr, "No such image") || strings.Contains(outputStr, "not found") {
+			return map[string]interface{}{
+				"success": false,
+				"error":   "镜像不存在",
+				"detail":  outputStr,
+			}
+		}
+		if strings.Contains(outputStr, "being used") || strings.Contains(outputStr, "in use") {
+			return map[string]interface{}{
+				"success": false,
+				"error":   "镜像正在使用中，请先停止使用该镜像的容器",
+				"detail":  outputStr,
+			}
+		}
+		if strings.Contains(outputStr, "permission denied") || strings.Contains(outputStr, "denied") {
+			return map[string]interface{}{
+				"success": false,
+				"error":   "权限不足，请使用管理员权限运行",
+				"detail":  outputStr,
+			}
+		}
+		return map[string]interface{}{
+			"success": false,
+			"error":   "删除失败",
+			"detail":  outputStr,
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+		"message": "镜像删除成功",
+	}
+}
+
 func (a *App) CreateProject(ctx context.Context, data map[string]interface{}) map[string]interface{} {
 	input := store.CreateProjectInput{
 		Name:     getString(data, "name"),
@@ -116,6 +186,418 @@ func (a *App) DeleteProject(ctx context.Context, projectId string) bool {
 		return false
 	}
 	return true
+}
+
+func (a *App) UpdateProject(ctx context.Context, data map[string]interface{}) map[string]interface{} {
+	projectId := getString(data, "id")
+	if projectId == "" {
+		return nil
+	}
+
+	input := store.UpdateProjectInput{
+		Name:     getString(data, "name"),
+		Path:     getString(data, "path"),
+		Language: getString(data, "language"),
+	}
+
+	p, err := store.UpdateProject(projectId, input)
+	if err != nil {
+		fmt.Printf("UpdateProject error: %v\n", err)
+		return nil
+	}
+
+	return map[string]interface{}{
+		"id":         p.ID,
+		"name":       p.Name,
+		"path":       p.Path,
+		"language":   p.Language,
+		"created_at": p.CreatedAt.Format(time.RFC3339),
+		"updated_at": p.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func (a *App) ListPipelines(ctx context.Context, projectId string) []map[string]interface{} {
+	pipelines, err := store.ListPipelines(projectId)
+	if err != nil {
+		fmt.Printf("ListPipelines error: %v\n", err)
+		return []map[string]interface{}{}
+	}
+
+	result := make([]map[string]interface{}, 0)
+	for _, p := range pipelines {
+		result = append(result, map[string]interface{}{
+			"id":         p.ID,
+			"project_id": p.ProjectID,
+			"name":       p.Name,
+			"steps":      p.Steps,
+			"config":     p.Config,
+			"created_at": p.CreatedAt.Format(time.RFC3339),
+			"updated_at": p.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+	return result
+}
+
+func (a *App) CreatePipeline(ctx context.Context, data map[string]interface{}) map[string]interface{} {
+	projectId := getString(data, "projectId")
+	name := getString(data, "name")
+	if projectId == "" || name == "" {
+		return map[string]interface{}{"error": "projectId and name are required"}
+	}
+
+	var steps []store.PipelineStep
+	if stepsData, ok := data["steps"].([]interface{}); ok {
+		for _, s := range stepsData {
+			if stepMap, ok := s.(map[string]interface{}); ok {
+				step := store.PipelineStep{
+					Type:   getString(stepMap, "type"),
+					Name:   getString(stepMap, "name"),
+					Retry:  0,
+					OnFail: "stop",
+				}
+				if v, ok := stepMap["retry"].(float64); ok {
+					step.Retry = int(v)
+				}
+				if v, ok := stepMap["onFail"].(string); ok {
+					step.OnFail = v
+				}
+				if cfg, ok := stepMap["config"].(map[string]interface{}); ok {
+					step.Config = cfg
+				}
+				steps = append(steps, step)
+			}
+		}
+	}
+
+	config := store.PipelineConfig{StopOnFail: true}
+	if cfg, ok := data["config"].(map[string]interface{}); ok {
+		if v, ok := cfg["stopOnFail"].(bool); ok {
+			config.StopOnFail = v
+		}
+	}
+
+	input := store.CreatePipelineInput{
+		ProjectID: projectId,
+		Name:     name,
+		Steps:    steps,
+		Config:   config,
+	}
+
+	p, err := store.CreatePipeline(input)
+	if err != nil {
+		fmt.Printf("CreatePipeline error: %v\n", err)
+		return map[string]interface{}{"error": err.Error()}
+	}
+
+	return map[string]interface{}{
+		"id":         p.ID,
+		"project_id": p.ProjectID,
+		"name":       p.Name,
+		"steps":      p.Steps,
+		"config":     p.Config,
+		"created_at": p.CreatedAt.Format(time.RFC3339),
+	}
+}
+
+func (a *App) DeletePipeline(ctx context.Context, pipelineId string) bool {
+	if err := store.DeletePipeline(pipelineId); err != nil {
+		fmt.Printf("DeletePipeline error: %v\n", err)
+		return false
+	}
+	return true
+}
+
+func (a *App) ExecutePipeline(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
+	pipelineId := getString(data, "pipelineId")
+	projectId := getString(data, "projectId")
+
+	pipeline, err := store.GetPipeline(pipelineId)
+	if err != nil {
+		return map[string]interface{}{"success": false, "error": err.Error()}, nil
+	}
+
+	logs := []map[string]interface{}{}
+	allSuccess := true
+
+	for _, step := range pipeline.Steps {
+		stepLog := map[string]interface{}{
+			"step":    step.Name,
+			"type":    step.Type,
+			"status":  "pending",
+			"message": "",
+		}
+
+		var stepErr error
+		for retry := 0; retry <= step.Retry; retry++ {
+			if retry > 0 {
+				fmt.Printf("Retrying step %s (attempt %d)\n", step.Name, retry)
+			}
+
+			switch step.Type {
+			case "build":
+				tag := "latest"
+				if t, ok := step.Config["tag"].(string); ok {
+					tag = t
+				}
+				contextPath := "."
+				if cp, ok := step.Config["contextPath"].(string); ok {
+					contextPath = cp
+				}
+				result := buildImage(projectId, tag, contextPath, false, false)
+				if !result["success"].(bool) {
+					stepErr = fmt.Errorf("%v", result["error"])
+				} else {
+					stepErr = nil
+					stepLog["message"] = fmt.Sprintf("Built: %s:%s", result["image_name"], result["image_tag"])
+				}
+
+			case "push":
+				imageName := ""
+				if img, ok := step.Config["imageName"].(string); ok {
+					imageName = img
+				}
+				registry := ""
+				if reg, ok := step.Config["registry"].(string); ok {
+					registry = reg
+				}
+				result := pushImage(imageName, registry)
+				if !result["success"].(bool) {
+					stepErr = fmt.Errorf("%v", result["error"])
+				} else {
+					stepErr = nil
+					stepLog["message"] = "Image pushed successfully"
+				}
+
+			case "deploy":
+				imageName := ""
+				if img, ok := step.Config["imageName"].(string); ok {
+					imageName = img
+				}
+				name := ""
+				if n, ok := step.Config["name"].(string); ok {
+					name = n
+				}
+				hostPort := ""
+				if hp, ok := step.Config["hostPort"].(string); ok {
+					hostPort = hp
+				}
+				containerPort := ""
+				if cp, ok := step.Config["containerPort"].(string); ok {
+					containerPort = cp
+				}
+				restartPolicy := "unless-stopped"
+				if rp, ok := step.Config["restartPolicy"].(string); ok {
+					restartPolicy = rp
+				}
+				result := deployContainer(imageName, name, hostPort, containerPort, restartPolicy, "")
+				if !result["success"].(bool) {
+					stepErr = fmt.Errorf("%v", result["error"])
+				} else {
+					stepErr = nil
+					stepLog["message"] = "Container deployed successfully"
+				}
+			}
+
+			if stepErr == nil {
+				break
+			}
+		}
+
+		if stepErr != nil {
+			stepLog["status"] = "failed"
+			stepLog["error"] = stepErr.Error()
+			logs = append(logs, stepLog)
+			if step.OnFail == "stop" || pipeline.Config.StopOnFail {
+				allSuccess = false
+				break
+			}
+		} else {
+			stepLog["status"] = "success"
+			logs = append(logs, stepLog)
+		}
+	}
+
+	return map[string]interface{}{
+		"success": allSuccess,
+		"logs":    logs,
+		"message": map[bool]string{true: "Pipeline executed successfully", false: "Pipeline failed"}[allSuccess],
+	}, nil
+}
+
+func buildImage(projectId, tag, contextPath string, noCache, pullLatest bool) map[string]interface{} {
+	if projectId == "" {
+		return map[string]interface{}{"success": false, "error": "projectId is required"}
+	}
+
+	record, err := store.CreateBuildRecord(projectId, tag, "latest")
+	if err != nil {
+		return map[string]interface{}{"success": false, "error": fmt.Sprintf("create build record: %v", err)}
+	}
+
+	args := []string{"buildx", "build", "-t", tag, "--progress=plain"}
+	if noCache {
+		args = append(args, "--no-cache")
+	}
+	if pullLatest {
+		args = append(args, "--pull")
+	}
+	args = append(args, contextPath)
+
+	cmd := exec.Command("docker", args...)
+	output, err := cmd.CombinedOutput()
+	logStr := string(output)
+
+	if err != nil {
+		store.FinishBuildRecord(record.ID, "failed", logStr)
+		parts := strings.SplitN(tag, ":", 2)
+		imageName := parts[0]
+		imageTag := "latest"
+		if len(parts) > 1 {
+			imageTag = parts[1]
+		}
+		return map[string]interface{}{
+			"success":    false,
+			"image_name": imageName,
+			"image_tag":  imageTag,
+			"log":        logStr,
+			"error":      err.Error(),
+		}
+	}
+
+	store.FinishBuildRecord(record.ID, "success", logStr)
+	parts := strings.SplitN(tag, ":", 2)
+	imageName := parts[0]
+	imageTag := "latest"
+	if len(parts) > 1 {
+		imageTag = parts[1]
+	}
+
+	return map[string]interface{}{
+		"success":    true,
+		"image_name": imageName,
+		"image_tag":  imageTag,
+		"log":        logStr,
+	}
+}
+
+func pushImage(imageName, registry string) map[string]interface{} {
+	if registry != "" {
+		username := ""
+		password := ""
+		if u, ok := os.LookupEnv("REGISTRY_USERNAME"); ok {
+			username = u
+		}
+		if p, ok := os.LookupEnv("REGISTRY_PASSWORD"); ok {
+			password = p
+		}
+		if username != "" && password != "" {
+			loginCmd := exec.Command("docker", "login", registry, "-u", username, "--password-stdin")
+			loginCmd.Stdin = strings.NewReader(password)
+			if out, err := loginCmd.CombinedOutput(); err != nil {
+				return map[string]interface{}{"success": false, "error": fmt.Sprintf("login failed: %s", string(out))}
+			}
+		}
+		fullName := registry + "/" + imageName
+		cmd := exec.Command("docker", "tag", imageName, fullName)
+		if err := cmd.Run(); err != nil {
+			return map[string]interface{}{"success": false, "error": fmt.Sprintf("tag failed: %v", err)}
+		}
+		imageName = fullName
+	}
+
+	cmd := exec.Command("docker", "push", imageName)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return map[string]interface{}{"success": false, "error": fmt.Sprintf("push failed: %s", string(output))}
+	}
+
+	return map[string]interface{}{"success": true, "message": "Image pushed successfully"}
+}
+
+func deployContainer(imageName, name, hostPort, containerPort, restartPolicy, envStr string) map[string]interface{} {
+	if restartPolicy == "" {
+		restartPolicy = "unless-stopped"
+	}
+
+	args := []string{"run", "-d", "--name", name, "--restart", restartPolicy}
+
+	if hostPort != "" && containerPort != "" {
+		args = append(args, "-p", hostPort+":"+containerPort)
+	}
+
+	if envStr != "" {
+		for _, line := range strings.Split(envStr, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				args = append(args, "-e", line)
+			}
+		}
+	}
+
+	args = append(args, imageName)
+
+	cmd := exec.Command("docker", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"message": string(output),
+			"error":   err.Error(),
+		}
+	}
+
+	return map[string]interface{}{
+		"success": true,
+		"id":      strings.TrimSpace(string(output)),
+		"message": "Container deployed successfully",
+	}
+}
+
+func (a *App) ListBuildRecords(ctx context.Context, projectId string) []map[string]interface{} {
+	records, err := store.ListBuildRecords(projectId)
+	if err != nil {
+		fmt.Printf("ListBuildRecords error: %v\n", err)
+		return []map[string]interface{}{}
+	}
+
+	result := make([]map[string]interface{}, len(records))
+	for i, r := range records {
+		m := map[string]interface{}{
+			"id":         r.ID,
+			"project_id": r.ProjectID,
+			"image_name": r.ImageName,
+			"image_tag":  r.ImageTag,
+			"status":     r.Status,
+			"started_at": r.StartedAt.Format(time.RFC3339),
+		}
+		if r.FinishedAt != nil {
+			m["finished_at"] = r.FinishedAt.Format(time.RFC3339)
+		}
+		result[i] = m
+	}
+	return result
+}
+
+func (a *App) GetBuildRecord(ctx context.Context, recordId string) map[string]interface{} {
+	r, err := store.GetBuildRecord(recordId)
+	if err != nil {
+		fmt.Printf("GetBuildRecord error: %v\n", err)
+		return nil
+	}
+
+	result := map[string]interface{}{
+		"id":         r.ID,
+		"project_id": r.ProjectID,
+		"image_name": r.ImageName,
+		"image_tag":  r.ImageTag,
+		"status":     r.Status,
+		"log":        r.Log,
+		"started_at": r.StartedAt.Format(time.RFC3339),
+	}
+	if r.FinishedAt != nil {
+		result["finished_at"] = r.FinishedAt.Format(time.RFC3339)
+	}
+	return result
 }
 
 func getString(data map[string]interface{}, key string) string {
@@ -159,7 +641,7 @@ func (a *App) BuildImage(ctx context.Context, data map[string]interface{}) (map[
 		return nil, fmt.Errorf("create build record: %w", err)
 	}
 
-	args := []string{"build", "-t", tag}
+	args := []string{"buildx", "build", "-t", tag, "--progress=plain"}
 	if noCache {
 		args = append(args, "--no-cache")
 	}
@@ -256,6 +738,18 @@ func (a *App) RemoveContainer(ctx context.Context, containerId string) bool {
 	return err == nil
 }
 
+func (a *App) GetContainerLogs(ctx context.Context, containerId string, tailLines int) string {
+	if tailLines <= 0 {
+		tailLines = 100
+	}
+	cmd := exec.Command("docker", "logs", "--tail", fmt.Sprintf("%d", tailLines), containerId)
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Sprintf("获取日志失败: %v", err)
+	}
+	return string(output)
+}
+
 func (a *App) DeployContainer(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
 	image := getString(data, "image")
 	name := getString(data, "name")
@@ -301,6 +795,81 @@ func (a *App) DeployContainer(ctx context.Context, data map[string]interface{}) 
 	}, nil
 }
 
+func (a *App) GenerateCompose(ctx context.Context, data map[string]interface{}) string {
+	image := getString(data, "image")
+	name := getString(data, "name")
+	hostPort := getString(data, "hostPort")
+	containerPort := getString(data, "containerPort")
+	restartPolicy := getString(data, "restartPolicy")
+	if restartPolicy == "" {
+		restartPolicy = "unless-stopped"
+	}
+	envStr := getString(data, "env")
+
+	compose := fmt.Sprintf(`version: '3.8'
+services:
+  %s:
+    image: %s
+    container_name: %s
+    restart: %s
+`, name, image, name, restartPolicy)
+
+	if hostPort != "" && containerPort != "" {
+		compose += fmt.Sprintf(`    ports:
+      - "%s:%s"
+`, hostPort, containerPort)
+	}
+
+	if envStr != "" {
+		compose += `    environment:
+`
+		for _, line := range strings.Split(envStr, "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" {
+				compose += fmt.Sprintf(`      - "%s"
+`, line)
+			}
+		}
+	}
+
+	return compose
+}
+
+func (a *App) DeployWithCompose(ctx context.Context, data map[string]interface{}) (map[string]interface{}, error) {
+	composeContent := getString(data, "compose")
+	workDir := getString(data, "workdir")
+
+	if workDir == "" {
+		workDir = "."
+	}
+
+	tmpFile := filepath.Join(workDir, "docker-compose.yml")
+	if err := os.WriteFile(tmpFile, []byte(composeContent), 0644); err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"error":   "Failed to write docker-compose.yml: " + err.Error(),
+		}, nil
+	}
+
+	cmd := exec.Command("docker", "compose", "up", "-d")
+	cmd.Dir = workDir
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		return map[string]interface{}{
+			"success": false,
+			"message": string(output),
+			"error":   err.Error(),
+		}, nil
+	}
+
+	return map[string]interface{}{
+		"success": true,
+		"message": "Deployed with docker-compose successfully",
+		"output":  string(output),
+	}, nil
+}
+
 func (a *App) GetSupportedLanguages(ctx context.Context) []map[string]string {
 	return []map[string]string{
 		{"language": "nodejs", "display_name": "🟢 Node.js"},
@@ -314,6 +883,27 @@ func (a *App) GetSupportedLanguages(ctx context.Context) []map[string]string {
 		{"language": "rust", "display_name": "🦀 Rust"},
 		{"language": "c", "display_name": "⚙️ C/C++"},
 	}
+}
+
+func (a *App) GetSettings(ctx context.Context) map[string]string {
+	settings, err := store.GetSettings()
+	if err != nil {
+		fmt.Printf("GetSettings error: %v\n", err)
+		return map[string]string{}
+	}
+	return settings
+}
+
+func (a *App) SaveSettings(ctx context.Context, data map[string]interface{}) bool {
+	for key, val := range data {
+		if str, ok := val.(string); ok {
+			if err := store.SaveSettings(key, str); err != nil {
+				fmt.Printf("SaveSettings error: %v\n", err)
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (a *App) GenerateDockerfile(ctx context.Context, language string) string {

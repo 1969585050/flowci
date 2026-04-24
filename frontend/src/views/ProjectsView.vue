@@ -29,6 +29,8 @@
         <div class="project-actions">
           <button class="btn-small" @click="buildProject(project)">构建</button>
           <button class="btn-small btn-secondary" @click="deployProject(project)">部署</button>
+          <button class="btn-small btn-outline" @click="showHistory(project)">历史</button>
+          <button class="btn-small btn-outline" @click="editProject(project)">编辑</button>
           <button class="btn-small btn-danger" @click="deleteProject(project)">删除</button>
         </div>
       </div>
@@ -66,12 +68,46 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showEditDialog" class="modal-overlay" @click.self="showEditDialog = false">
+      <div class="modal">
+        <h2>编辑项目</h2>
+        <div class="form-group">
+          <label>项目名称</label>
+          <input v-model="editForm.name" type="text" placeholder="my-project" />
+        </div>
+        <div class="form-group">
+          <label>项目路径</label>
+          <input v-model="editForm.path" type="text" placeholder="/workspace/my-project" />
+        </div>
+        <div class="form-group">
+          <label>语言/框架</label>
+          <select v-model="editForm.language">
+            <option value="nodejs">Node.js</option>
+            <option value="go">Go</option>
+            <option value="python">Python</option>
+            <option value="java-maven">Java (Maven)</option>
+            <option value="java-gradle">Java (Gradle)</option>
+            <option value="php">PHP</option>
+            <option value="ruby">Ruby</option>
+            <option value="dotnet">.NET</option>
+            <option value="rust">Rust</option>
+            <option value="c">C/C++</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="showEditDialog = false">取消</button>
+          <button class="btn-primary" @click="updateProject" :disabled="updating">保存</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ListProjects, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/main/App'
 
 interface Project {
   id: string
@@ -84,9 +120,12 @@ interface Project {
 const router = useRouter()
 const loading = ref(false)
 const creating = ref(false)
+const updating = ref(false)
 const projects = ref<Project[]>([])
 const showCreateDialog = ref(false)
+const showEditDialog = ref(false)
 const newProject = ref({ name: '', path: '', language: 'nodejs' })
+const editForm = ref({ id: '', name: '', path: '', language: 'nodejs' })
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 
@@ -114,9 +153,7 @@ function formatDate(date: string) {
 async function refreshProjects() {
   loading.value = true
   try {
-    if ((window as any).wails?.Invoke) {
-      projects.value = await (window as any).wails.Invoke('ListProjects')
-    }
+    projects.value = await ListProjects()
   } catch (e) {
     console.error('Failed to load projects:', e)
     toast?.error('加载项目列表失败')
@@ -131,17 +168,15 @@ async function createProject() {
   }
   creating.value = true
   try {
-    if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('CreateProject', {
-        name: newProject.value.name,
-        path: newProject.value.path,
-        language: newProject.value.language
-      })
-      toast?.success('项目创建成功')
-      showCreateDialog.value = false
-      newProject.value = { name: '', path: '', language: 'nodejs' }
-      await refreshProjects()
-    }
+    await CreateProject({
+      name: newProject.value.name,
+      path: newProject.value.path,
+      language: newProject.value.language
+    })
+    toast?.success('项目创建成功')
+    showCreateDialog.value = false
+    newProject.value = { name: '', path: '', language: 'nodejs' }
+    await refreshProjects()
   } catch (e) {
     toast?.error(`创建失败: ${e}`)
   }
@@ -151,22 +186,56 @@ async function createProject() {
 async function deleteProject(project: Project) {
   if (!confirm(`确定要删除项目 "${project.name}" 吗？`)) return
   try {
-    if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('DeleteProject', project.id)
-      toast?.success('项目已删除')
-      await refreshProjects()
-    }
+    await DeleteProject(project.id)
+    toast?.success('项目已删除')
+    await refreshProjects()
   } catch (e) {
     toast?.error(`删除失败: ${e}`)
   }
 }
 
+function showHistory(project: Project) {
+  router.push({ path: '/build-history', query: { projectId: project.id } })
+}
+
+function editProject(project: Project) {
+  editForm.value = {
+    id: project.id,
+    name: project.name,
+    path: project.path,
+    language: project.language
+  }
+  showEditDialog.value = true
+}
+
+async function updateProject() {
+  if (!editForm.value.name || !editForm.value.path) {
+    toast?.error('请填写项目名称和路径')
+    return
+  }
+  updating.value = true
+  try {
+    await UpdateProject({
+      id: editForm.value.id,
+      name: editForm.value.name,
+      path: editForm.value.path,
+      language: editForm.value.language
+    })
+    toast?.success('项目已更新')
+    showEditDialog.value = false
+    await refreshProjects()
+  } catch (e) {
+    toast?.error(`更新失败: ${e}`)
+  }
+  updating.value = false
+}
+
 function buildProject(project: Project) {
-  router.push('/build')
+  router.push({ path: '/build', query: { projectId: project.id } })
 }
 
 function deployProject(project: Project) {
-  router.push('/deploy')
+  router.push({ path: '/deploy', query: { projectId: project.id } })
 }
 
 onMounted(() => {
@@ -188,7 +257,7 @@ onMounted(() => {
 
 .header h1 {
   font-size: 28px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .btn-primary {
@@ -225,7 +294,7 @@ onMounted(() => {
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #e0e0e0;
+  border: 4px solid var(--border-color, #e0e0e0);
   border-top-color: #667eea;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -241,11 +310,11 @@ onMounted(() => {
 
 .empty-state h3 {
   font-size: 20px;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .empty-state p {
-  color: #999;
+  color: var(--text-secondary, #999);
 }
 
 .project-grid {
@@ -255,10 +324,10 @@ onMounted(() => {
 }
 
 .project-card {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
   transition: all 0.2s;
 }
 
@@ -277,7 +346,7 @@ onMounted(() => {
 .project-name {
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
 }
 
 .lang-badge {
@@ -289,22 +358,22 @@ onMounted(() => {
 }
 
 .project-path {
-  color: #666;
+  color: var(--text-secondary, #666);
   font-size: 13px;
   margin-bottom: 12px;
 }
 
 .project-meta {
-  color: #999;
+  color: var(--text-secondary, #999);
   font-size: 12px;
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color, #eee);
 }
 
 .project-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
 }
 
 .btn-small {
@@ -319,8 +388,8 @@ onMounted(() => {
 }
 
 .btn-secondary {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-primary, #f0f0f0);
+  color: var(--text-primary, #333);
 }
 
 .btn-danger {
@@ -330,6 +399,16 @@ onMounted(() => {
 
 .btn-danger:hover {
   background: #fecaca;
+}
+
+.btn-outline {
+  background: var(--card-bg, white);
+  color: #667eea;
+  border: 1.5px solid #667eea;
+}
+
+.btn-outline:hover {
+  background: rgba(102, 126, 234, 0.05);
 }
 
 .modal-overlay {
@@ -346,7 +425,7 @@ onMounted(() => {
 }
 
 .modal {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 16px;
   padding: 32px;
   width: 480px;
@@ -356,7 +435,7 @@ onMounted(() => {
 
 .modal h2 {
   font-size: 22px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 24px;
 }
 
@@ -370,15 +449,17 @@ onMounted(() => {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .form-group input,
 .form-group select {
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--card-bg, white);
+  color: var(--text-primary, #333);
   transition: border-color 0.2s;
 }
 
@@ -396,8 +477,8 @@ onMounted(() => {
 }
 
 .btn-cancel {
-  background: #f0f0f0;
-  color: #333;
+  background: var(--bg-primary, #f0f0f0);
+  color: var(--text-primary, #333);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;

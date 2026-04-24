@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { PushImage } from '../wailsjs/go/main/App'
 
 const pushing = ref(false)
 const enableAuth = ref(false)
@@ -94,21 +95,16 @@ async function pushImage() {
       data.password = pushConfig.value.password
     }
 
-    if ((window as any).wails?.Invoke) {
-      const result = await (window as any).wails.Invoke('PushImage', data)
-      if (result.success) {
-        addLog('推送成功！', 'success')
-        if (result.log) {
-          result.log.split('\n').forEach((line: string) => {
-            if (line.trim()) addLog(line)
-          })
-        }
-      } else {
-        addLog(`推送失败: ${result.error}`, 'error')
+    const result = await PushImage(data)
+    if (result.success) {
+      addLog('推送成功！', 'success')
+      if (result.log) {
+        result.log.split('\n').forEach((line: string) => {
+          if (line.trim()) addLog(line)
+        })
       }
     } else {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      addLog('模拟推送完成！', 'success')
+      addLog(`推送失败: ${result.error}`, 'error')
     }
   } catch (e) {
     addLog(`推送失败: ${e}`, 'error')
@@ -125,21 +121,21 @@ async function pushImage() {
 
 h1 {
   font-size: 28px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 24px;
 }
 
 .card {
-  background: white;
+  background: var(--card-bg, white);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
   margin-bottom: 20px;
 }
 
 .card h3 {
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text-primary, #1a1a2e);
   margin-bottom: 16px;
 }
 
@@ -159,7 +155,7 @@ h1 {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary, #666);
   cursor: pointer;
 }
 
@@ -184,14 +180,16 @@ h1 {
 .form-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .form-group input {
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color, #e0e0e0);
   border-radius: 8px;
   font-size: 14px;
+  background: var(--card-bg, white);
+  color: var(--text-primary, #333);
   transition: border-color 0.2s;
 }
 
