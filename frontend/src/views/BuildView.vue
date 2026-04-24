@@ -3,6 +3,16 @@
     <h1>镜像构建</h1>
 
     <div class="card">
+      <h3>关联项目</h3>
+      <select v-model="selectedProjectId" class="project-select">
+        <option value="">-- 请选择项目 --</option>
+        <option v-for="p in projects" :key="p.id" :value="p.id">
+          {{ p.name }} ({{ p.path }})
+        </option>
+      </select>
+    </div>
+
+    <div class="card">
       <h3>选择语言/框架</h3>
       <div class="lang-grid">
         <div
@@ -69,7 +79,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+
+interface Project {
+  id: string
+  name: string
+  path: string
+  language: string
+}
+
+const projects = ref<Project[]>([])
+const selectedProjectId = ref('')
 
 const languages = [
   { id: 'nodejs', name: 'Node.js', emoji: '🟢' },
@@ -99,51 +119,30 @@ COPY . .
 EXPOSE 3000
 CMD ["node", "index.js"]`)
 
-function generateDockerfile() {
+async function generateDockerfile() {
+  if (!selectedProjectId.value) {
+    addLog('请先选择项目', 'error')
+    return
+  }
   const lang = selectedLang.value
-  let content = ''
-  
-  switch (lang) {
-    case 'nodejs':
-      content = `FROM node:18-alpine
+  try {
+    if ((window as any).wails?.Invoke) {
+      const content = await (window as any).wails.Invoke('GenerateDockerfile', lang)
+      dockerfileContent.value = content
+    } else {
+      addLog('Wails 运行时不可用，使用默认模板', 'error')
+      dockerfileContent.value = `FROM alpine:latest
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
 COPY . .
-EXPOSE 3000
-CMD ["node", "index.js"]`
-      break
-    case 'go':
-      content = `FROM golang:1.21-alpine AS builder
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -o main .
-
-FROM alpine:latest
-WORKDIR /app
-COPY --from=builder /app/main .
-EXPOSE 8080
-CMD ["./main"]`
-      break
-    case 'python':
-      content = `FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["python", "app.py"]`
-      break
-    default:
-      content = `FROM alpine:latest
+CMD ["./app"]`
+    }
+  } catch (error) {
+    addLog(`Dockerfile生成失败: ${error}`, 'error')
+    dockerfileContent.value = `FROM alpine:latest
 WORKDIR /app
 COPY . .
 CMD ["./app"]`
   }
-  
-  dockerfileContent.value = content
 }
 
 function addLog(text: string, type = 'info') {
@@ -151,25 +150,50 @@ function addLog(text: string, type = 'info') {
   buildLogs.value.push({ time, text, type })
 }
 
+async function loadProjects() {
+  try {
+    if ((window as any).wails?.Invoke) {
+      projects.value = await (window as any).wails.Invoke('ListProjects')
+    }
+  } catch {
+    console.error('Failed to load projects')
+  }
+}
+
 async function startBuild() {
   if (building.value) return
+  if (!selectedProjectId.value) {
+    addLog('请先选择关联项目', 'error')
+    return
+  }
   building.value = true
   buildLogs.value = []
   
+  const project = projects.value.find(p => p.id === selectedProjectId.value)
   addLog('开始构建...')
+  addLog(`项目: ${project?.name || selectedProjectId.value}`)
   addLog(`语言: ${selectedLang.value}`)
   addLog(`镜像: ${buildConfig.value.tag}`)
   
   try {
     if ((window as any).wails?.Invoke) {
-      await (window as any).wails.Invoke('BuildImage', {
-        language: selectedLang.value,
+      const result = await (window as any).wails.Invoke('BuildImage', {
+        projectId: selectedProjectId.value,
         contextPath: buildConfig.value.contextPath,
         tag: buildConfig.value.tag,
         noCache: buildConfig.value.noCache,
         pullLatest: buildConfig.value.pullLatest
       })
-      addLog('构建成功！', 'success')
+      if (result.log) {
+        result.log.split('\n').forEach((line: string) => {
+          if (line.trim()) addLog(line)
+        })
+      }
+      if (result.success) {
+        addLog(`构建成功！镜像: ${result.image_name}:${result.image_tag}`, 'success')
+      } else {
+        addLog(`构建失败: ${result.error}`, 'error')
+      }
     } else {
       await new Promise(resolve => setTimeout(resolve, 3000))
       addLog('模拟构建完成！', 'success')
@@ -180,6 +204,11 @@ async function startBuild() {
   
   building.value = false
 }
+
+onMounted(() => {
+  loadProjects()
+  generateDockerfile()
+})
 </script>
 
 <style scoped>
@@ -271,6 +300,22 @@ h1 {
 }
 
 .form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.project-select {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.project-select:focus {
   outline: none;
   border-color: #667eea;
 }

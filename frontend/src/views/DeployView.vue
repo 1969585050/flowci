@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, inject, onMounted } from 'vue'
 
 interface Container {
   id: string
@@ -89,6 +89,8 @@ interface Container {
   status: 'running' | 'stopped' | 'exited'
   statusText: string
 }
+
+const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 
 const deploying = ref(false)
 const containersLoading = ref(false)
@@ -113,10 +115,10 @@ async function deployContainer() {
     } else {
       await new Promise(resolve => setTimeout(resolve, 2000))
     }
-    alert('部署成功！')
+    toast?.success('部署成功！')
     await refreshContainers()
   } catch (e) {
-    alert(`部署失败: ${e}`)
+    toast?.error(`部署失败: ${e}`)
   }
   
   deploying.value = false
@@ -144,9 +146,10 @@ async function startContainer(id: string) {
     if ((window as any).wails?.Invoke) {
       await (window as any).wails.Invoke('StartContainer', id)
     }
+    toast?.success('容器已启动')
     await refreshContainers()
   } catch (e) {
-    alert(`启动失败: ${e}`)
+    toast?.error(`启动失败: ${e}`)
   }
 }
 
@@ -155,9 +158,10 @@ async function stopContainer(id: string) {
     if ((window as any).wails?.Invoke) {
       await (window as any).wails.Invoke('StopContainer', id)
     }
+    toast?.success('容器已停止')
     await refreshContainers()
   } catch (e) {
-    alert(`停止失败: ${e}`)
+    toast?.error(`停止失败: ${e}`)
   }
 }
 
@@ -167,9 +171,10 @@ async function removeContainer(id: string) {
     if ((window as any).wails?.Invoke) {
       await (window as any).wails.Invoke('RemoveContainer', id)
     }
+    toast?.success('容器已删除')
     await refreshContainers()
   } catch (e) {
-    alert(`删除失败: ${e}`)
+    toast?.error(`删除失败: ${e}`)
   }
 }
 

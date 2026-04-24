@@ -18,6 +18,10 @@
           <span class="nav-icon">🌐</span>
           <span>部署</span>
         </router-link>
+        <router-link to="/push" class="nav-item" active-class="active">
+          <span class="nav-icon">📤</span>
+          <span>推送</span>
+        </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
           <span class="nav-icon">⚙️</span>
           <span>设置</span>
@@ -27,10 +31,20 @@
     <div class="content">
       <router-view />
     </div>
+    <Toast ref="toastRef" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, provide } from 'vue'
+import Toast from './components/Toast.vue'
+
+const toastRef = ref<InstanceType<typeof Toast>>()
+provide('toast', {
+  success(msg: string) { toastRef.value?.addToast('success', msg) },
+  error(msg: string) { toastRef.value?.addToast('error', msg) },
+  info(msg: string) { toastRef.value?.addToast('info', msg) }
+})
 </script>
 
 <style>
