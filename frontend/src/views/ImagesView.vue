@@ -36,7 +36,7 @@
           </div>
           <div class="detail-row">
             <span class="label">创建时间</span>
-            <span class="value">{{ image.created_at }}</span>
+            <span class="value">{{ image.createdAt }}</span>
           </div>
         </div>
         <div class="image-card-footer">
@@ -49,16 +49,18 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { ListImages, RemoveImage } from '../wailsjs/go/main/App'
+import { ListImages, RemoveImage } from '../wailsjs/go/handler/App'
+import { useConfirm } from '../composables/useConfirm'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
+const { ask } = useConfirm()
 
 interface Image {
   id: string
   repository: string
   tag: string
   size: string
-  created_at: string
+  createdAt: string
 }
 
 const images = ref<Image[]>([])
@@ -81,17 +83,20 @@ async function refreshImages() {
 
 async function removeImage(image: Image) {
   const tag = `${image.repository}:${image.tag}`
-  if (!confirm(`确定要删除镜像 ${tag} 吗？`)) return
+  const ok = await ask({
+    title: '删除镜像',
+    message: `确定要删除镜像 ${tag} 吗？若镜像正在被容器使用，删除会失败。`,
+    variant: 'danger',
+    confirmText: '删除',
+  })
+  if (!ok) return
   try {
-    const result = await RemoveImage(image.id)
-    if (result.success) {
-      toast?.success(`镜像 ${tag} 已删除`)
-      await refreshImages()
-    } else {
-      toast?.error(`${result.error || '删除失败'}`)
-    }
+    await RemoveImage(image.id)
+    toast?.success(`镜像 ${tag} 已删除`)
+    await refreshImages()
   } catch (e) {
-    toast?.error(`删除失败: ${e}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`删除失败: ${msg}`)
   }
 }
 

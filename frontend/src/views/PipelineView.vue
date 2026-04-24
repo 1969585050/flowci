@@ -91,7 +91,7 @@
         <h2>运行流水线</h2>
         <div v-if="runningPipeline" class="pipeline-run-info">
           <p><strong>流水线:</strong> {{ runningPipeline.name }}</p>
-          <p><strong>项目:</strong> {{ getProjectName(runningPipeline.project_id) }}</p>
+          <p><strong>项目:</strong> {{ getProjectName(runningPipeline.projectId) }}</p>
         </div>
 
         <div v-if="!pipelineResult" class="running-status">
@@ -158,11 +158,14 @@ steps:
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { ListPipelines, CreatePipeline, DeletePipeline, ExecutePipeline, ListProjects, ExportPipelineToYaml, ImportPipelineFromYaml } from '../wailsjs/go/main/App'
+import { ListPipelines, CreatePipeline, DeletePipeline, ExecutePipeline, ListProjects, ExportPipelineToYaml, ImportPipelineFromYaml } from '../wailsjs/go/handler/App'
+import { useConfirm } from '../composables/useConfirm'
+
+const { ask } = useConfirm()
 
 interface Pipeline {
   id: string
-  project_id: string
+  projectId: string
   name: string
   steps: PipelineStep[]
   config: PipelineConfig
@@ -290,7 +293,13 @@ async function createPipeline() {
 }
 
 async function deletePipelineConfirm(pipeline: Pipeline) {
-  if (!confirm(`确定要删除流水线 "${pipeline.name}" 吗？`)) return
+  const ok = await ask({
+    title: '删除流水线',
+    message: `确定要删除流水线 "${pipeline.name}" 吗？此操作不可撤销。`,
+    variant: 'danger',
+    confirmText: '删除',
+  })
+  if (!ok) return
   try {
     await DeletePipeline(pipeline.id)
     toast?.success('流水线已删除')
@@ -308,7 +317,7 @@ async function runPipeline(pipeline: Pipeline) {
   try {
     pipelineResult.value = await ExecutePipeline({
       pipelineId: pipeline.id,
-      projectId: pipeline.project_id
+      projectId: pipeline.projectId
     })
   } catch (e) {
     pipelineResult.value = { success: false, logs: [], error: String(e) }
@@ -338,19 +347,16 @@ async function importPipeline() {
 
   importing.value = true
   try {
-    const result = await ImportPipelineFromYaml({
+    await ImportPipelineFromYaml({
       projectId: importConfig.value.projectId,
       yaml: importConfig.value.yaml
     })
-    if (result.error) {
-      toast?.error(`导入失败: ${result.error}`)
-    } else {
-      toast?.success('流水线导入成功')
-      closeImportDialog()
-      await loadPipelines()
-    }
+    toast?.success('流水线导入成功')
+    closeImportDialog()
+    await loadPipelines()
   } catch (e) {
-    toast?.error(`导入失败: ${e}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`导入失败: ${msg}`)
   }
   importing.value = false
 }

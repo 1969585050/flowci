@@ -16,7 +16,7 @@
       <div class="info-grid">
         <div class="info-card">
           <div class="info-label">镜像名称</div>
-          <div class="info-value">{{ record.image_name }}:{{ record.image_tag }}</div>
+          <div class="info-value">{{ record.imageName }}:{{ record.imageTag }}</div>
         </div>
         <div class="info-card">
           <div class="info-label">构建状态</div>
@@ -28,15 +28,15 @@
         </div>
         <div class="info-card">
           <div class="info-label">开始时间</div>
-          <div class="info-value">{{ formatDate(record.started_at) }}</div>
+          <div class="info-value">{{ formatDate(record.startedAt) }}</div>
         </div>
-        <div class="info-card" v-if="record.finished_at">
+        <div class="info-card" v-if="record.finishedAt">
           <div class="info-label">完成时间</div>
-          <div class="info-value">{{ formatDate(record.finished_at) }}</div>
+          <div class="info-value">{{ formatDate(record.finishedAt) }}</div>
         </div>
-        <div class="info-card" v-if="record.started_at && record.finished_at">
+        <div class="info-card" v-if="record.startedAt && record.finishedAt">
           <div class="info-label">耗时</div>
-          <div class="info-value">{{ calcDuration(record.started_at, record.finished_at) }}</div>
+          <div class="info-value">{{ calcDuration(record.startedAt, record.finishedAt) }}</div>
         </div>
       </div>
 
@@ -58,17 +58,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { GetBuildRecord } from '../wailsjs/go/main/App'
+import { GetBuildRecord } from '../wailsjs/go/handler/App'
 
 interface BuildRecord {
   id: string
-  project_id: string
-  image_name: string
-  image_tag: string
+  projectId: string
+  imageName: string
+  imageTag: string
   status: string
   log: string
-  started_at: string
-  finished_at?: string
+  startedAt: string
+  finishedAt?: string
 }
 
 const route = useRoute()

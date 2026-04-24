@@ -29,12 +29,12 @@
         <div class="record-main">
           <div class="record-info">
             <div class="record-image">
-              {{ record.image_name }}<span class="tag">:{{ record.image_tag }}</span>
+              {{ record.imageName }}<span class="tag">:{{ record.imageTag }}</span>
             </div>
             <div class="record-time">
-              <span>{{ formatDate(record.started_at) }}</span>
-              <span v-if="record.finished_at" class="duration">
-                ({{ calcDuration(record.started_at, record.finished_at) }})
+              <span>{{ formatDate(record.startedAt) }}</span>
+              <span v-if="record.finishedAt" class="duration">
+                ({{ calcDuration(record.startedAt, record.finishedAt) }})
               </span>
             </div>
           </div>
@@ -50,16 +50,16 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ListProjects, ListBuildRecords } from '../wailsjs/go/main/App'
+import { ListProjects, ListBuildRecords } from '../wailsjs/go/handler/App'
 
 interface BuildRecord {
   id: string
-  project_id: string
-  image_name: string
-  image_tag: string
+  projectId: string
+  imageName: string
+  imageTag: string
   status: string
-  started_at: string
-  finished_at?: string
+  startedAt: string
+  finishedAt?: string
 }
 
 interface Project {

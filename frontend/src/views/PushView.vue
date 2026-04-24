@@ -54,7 +54,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { PushImage } from '../wailsjs/go/main/App'
+import { PushImage } from '../wailsjs/go/handler/App'
 
 const pushing = ref(false)
 const enableAuth = ref(false)
@@ -96,18 +96,15 @@ async function pushImage() {
     }
 
     const result = await PushImage(data)
-    if (result.success) {
-      addLog('推送成功！', 'success')
-      if (result.log) {
-        result.log.split('\n').forEach((line: string) => {
-          if (line.trim()) addLog(line)
-        })
-      }
-    } else {
-      addLog(`推送失败: ${result.error}`, 'error')
+    addLog('推送成功！', 'success')
+    if (result.log) {
+      result.log.split('\n').forEach((line: string) => {
+        if (line.trim()) addLog(line)
+      })
     }
   } catch (e) {
-    addLog(`推送失败: ${e}`, 'error')
+    const msg = e instanceof Error ? e.message : String(e)
+    addLog(`推送失败: ${msg}`, 'error')
   }
 
   pushing.value = false

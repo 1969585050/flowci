@@ -126,7 +126,10 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { DeployContainer, ListContainers, StartContainer, StopContainer, RemoveContainer, GetContainerLogs, GenerateCompose, DeployWithCompose } from '../wailsjs/go/main/App'
+import { DeployContainer, ListContainers, StartContainer, StopContainer, RemoveContainer, GetContainerLogs, GenerateCompose, DeployWithCompose } from '../wailsjs/go/handler/App'
+import { useConfirm } from '../composables/useConfirm'
+
+const { ask } = useConfirm()
 
 interface Container {
   id: string
@@ -145,8 +148,9 @@ const containers = ref<Container[]>([])
 const deployConfig = ref({
   image: 'my-app:latest',
   name: 'my-app-container',
-  hostPort: 8080,
-  containerPort: 3000,
+  // 端口以字符串存储，后端 DTO 字段为 string；模板表单用 type="number" 仍可正常输入
+  hostPort: '8080',
+  containerPort: '3000',
   restartPolicy: 'unless-stopped',
   env: 'NODE_ENV=production\nPORT=3000'
 })
@@ -166,22 +170,19 @@ async function deployContainer() {
 
   try {
     if (useCompose.value) {
-      const result = await DeployWithCompose({
+      await DeployWithCompose({
         compose: composePreview.value,
         workdir: composeWorkdir.value || '.'
       })
-      if (result.success) {
-        toast?.success('Docker Compose 部署成功！')
-      } else {
-        toast?.error(`部署失败: ${result.error || result.message}`)
-      }
+      toast?.success('Docker Compose 部署成功！')
     } else {
       await DeployContainer(deployConfig.value)
       toast?.success('部署成功！')
     }
     await refreshContainers()
   } catch (e) {
-    toast?.error(`部署失败: ${e}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`部署失败: ${msg}`)
   }
 
   deploying.value = false
@@ -226,13 +227,20 @@ async function stopContainer(id: string) {
 }
 
 async function removeContainer(id: string) {
-  if (!confirm('确定要删除此容器吗？')) return
+  const ok = await ask({
+    title: '删除容器',
+    message: '确定要删除此容器吗？正在运行的容器会被强制停止并删除。',
+    variant: 'danger',
+    confirmText: '删除',
+  })
+  if (!ok) return
   try {
     await RemoveContainer(id)
     toast?.success('容器已删除')
     await refreshContainers()
   } catch (e) {
-    toast?.error(`删除失败: ${e}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`删除失败: ${msg}`)
   }
 }
 

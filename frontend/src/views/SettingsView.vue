@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { CheckDocker, GetSettings, SaveSettings } from '../wailsjs/go/main/App'
+import { CheckDocker, GetSettings, SaveSettings } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 const themeContext = inject('theme') as { current: { value: string }; setTheme: (theme: string) => void }
@@ -130,13 +130,16 @@ async function checkDocker() {
 async function saveSettings() {
   try {
     await SaveSettings({
-      defaultRegistry: settings.value.defaultRegistry,
-      defaultWorkdir: settings.value.defaultWorkdir,
-      theme: settings.value.theme
+      settings: {
+        defaultRegistry: settings.value.defaultRegistry,
+        defaultWorkdir: settings.value.defaultWorkdir,
+        theme: settings.value.theme,
+      },
     })
     toast?.success('设置已保存！')
   } catch (e) {
-    toast?.error(`保存失败: ${e}`)
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`保存失败: ${msg}`)
   }
 }
 

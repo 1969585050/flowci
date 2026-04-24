@@ -81,7 +81,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { GenerateDockerfile, ListProjects, BuildImage } from '../wailsjs/go/main/App'
+import { GenerateDockerfile, ListProjects, BuildImage } from '../wailsjs/go/handler/App'
 
 const route = useRoute()
 
@@ -186,13 +186,10 @@ async function startBuild() {
         if (line.trim()) addLog(line)
       })
     }
-    if (result.success) {
-      addLog(`构建成功！镜像: ${result.image_name}:${result.image_tag}`, 'success')
-    } else {
-      addLog(`构建失败: ${result.error}`, 'error')
-    }
+    addLog(`构建成功！镜像: ${result.imageName}:${result.imageTag}`, 'success')
   } catch (e) {
-    addLog(`构建失败: ${e}`, 'error')
+    const msg = e instanceof Error ? e.message : String(e)
+    addLog(`构建失败: ${msg}`, 'error')
   }
   
   building.value = false

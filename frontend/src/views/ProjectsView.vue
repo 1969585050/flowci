@@ -24,7 +24,7 @@
         </div>
         <div class="project-path">{{ project.path }}</div>
         <div class="project-meta">
-          <span>创建: {{ formatDate(project.created_at) }}</span>
+          <span>创建: {{ formatDate(project.createdAt) }}</span>
         </div>
         <div class="project-actions">
           <button class="btn-small" @click="buildProject(project)">构建</button>
@@ -107,14 +107,17 @@
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ListProjects, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/main/App'
+import { ListProjects, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/handler/App'
+import { useConfirm } from '../composables/useConfirm'
+
+const { ask } = useConfirm()
 
 interface Project {
   id: string
   name: string
   path: string
   language: string
-  created_at: string
+  createdAt: string
 }
 
 const router = useRouter()
@@ -184,7 +187,13 @@ async function createProject() {
 }
 
 async function deleteProject(project: Project) {
-  if (!confirm(`确定要删除项目 "${project.name}" 吗？`)) return
+  const ok = await ask({
+    title: '删除项目',
+    message: `确定要删除项目 "${project.name}" 吗？此操作不可撤销，相关流水线与构建记录将一并级联删除。`,
+    variant: 'danger',
+    confirmText: '删除',
+  })
+  if (!ok) return
   try {
     await DeleteProject(project.id)
     toast?.success('项目已删除')
