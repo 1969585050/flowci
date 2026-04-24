@@ -11,7 +11,7 @@
 |---|---|---|---|
 | **阶段 0** | 立规范、定基线 | 0.5 天 | ✅ 完成 (commit `ea8ae00`) |
 | **阶段 1** | 清理 Tauri 残留 + 死代码 + slog 日志 | 1 天 | ✅ 完成 (commit `565fb8d`) |
-| **阶段 2** | 拆 main.go + 强类型化 + SQLite 改造 + exec 超时 | 3-5 天 | 🟡 进行中 |
+| **阶段 2** | 拆 main.go + 强类型化 + SQLite 改造 + exec 超时 | 3-5 天 | 🟢 后端完成；前端 2.G 需手动（见 FRONTEND_MIGRATION.md） |
 | **阶段 3** | 凭证 keyring + build log 瘦身 + 参数校验 + 并发锁 | 2-3 天 | ⏳ 待开始 |
 
 **总计**: 约 7-10 个工作日。每个阶段结束都是一次稳定基线，可以暂停。
@@ -82,7 +82,26 @@
 
 ---
 
-## 阶段 2 — 重构（重头戏）🟡
+## 阶段 2 — 重构（重头戏）🟢 后端完成
+
+**后端**: 完成 (commit `1f4cac7`)
+**前端 2.G**: 需要本地 `wails generate module` 后手动迁移；详见 [FRONTEND_MIGRATION.md](./FRONTEND_MIGRATION.md)
+
+### 完成项
+
+- [x] 2.A SQLite 改造: WAL + schema_migrations 表 + migrations/*.sql embed runner + MaxOpenConns 放宽
+- [x] 2.B 新建 internal/config: DataDir/LogDir 路径出口
+- [x] 2.C 新建 internal/docker: 6 文件，超时常量表，exec.CommandContext，所有返回值强类型
+- [x] 2.D 扩展 internal/pipeline: executor.go per-pipeline 锁 + validator.go
+- [x] 2.E 新建 internal/handler: 11 文件，DTO/errors/各领域 Bind，全 camelCase JSON tag，error 替代 success-map 协议
+- [x] 2.F main.go 瘦身到 54 行
+- [x] 2.H 后端测试全绿 (go test ./... 通过；handler 4 个集成测试 + pipeline 6 个 YAML 测试)
+
+### 未完成项（留给本地手动）
+
+- [ ] 2.G 前端 `src/api/` 封装层 + 删手写 interface + 跟新 import 路径 + 错误协议从 map 改 try/catch
+  - 步骤见 `docs/standards/FRONTEND_MIGRATION.md`
+  - 依赖本地 `wails generate module`，AI 会话环境下 wails CLI 无法调用 go
 
 **目标**: 代码结构符合 backend-spec，类型系统用起来，SQLite 用对。
 
