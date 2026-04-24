@@ -17,6 +17,9 @@ type PipelineStep struct {
 	OnFail  string `json:"on_fail"` // continue, stop
 }
 
+// PipelineConfig 流水线全局配置。
+// TODO(phase-2): Parallel 字段目前仅声明未实现；executor 为串行执行。
+// 计划在阶段 2 的 internal/pipeline/executor.go 中加入并行执行分支。
 type PipelineConfig struct {
 	Parallel   bool `json:"parallel"`
 	StopOnFail bool `json:"stop_on_fail"`

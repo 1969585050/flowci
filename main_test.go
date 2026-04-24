@@ -1,38 +1,23 @@
 package main
 
 import (
+	"strings"
 	"testing"
+
+	"flowci/internal/pipeline"
 
 	"gopkg.in/yaml.v3"
 )
 
+// TestYamlMarshalFormat 验证 pipeline.YamlPipeline 能正确 Marshal 为含 name/type/stop_on_fail 的 YAML。
 func TestYamlMarshalFormat(t *testing.T) {
-	type YamlStep struct {
-		Type   string `yaml:"type"`
-		Name   string `yaml:"name"`
-		Retry  int    `yaml:"retry,omitempty"`
-		OnFail string `yaml:"on_fail,omitempty"`
-		Config map[string]interface{} `yaml:"config,omitempty"`
-	}
-
-	type YamlConfig struct {
-		Parallel   bool `yaml:"parallel,omitempty"`
-		StopOnFail bool `yaml:"stop_on_fail"`
-	}
-
-	type YamlPipeline struct {
-		Name   string     `yaml:"name"`
-		Config YamlConfig `yaml:"config"`
-		Steps  []YamlStep `yaml:"steps"`
-	}
-
-	pipeline := YamlPipeline{
+	p := pipeline.YamlPipeline{
 		Name: "test-pipeline",
-		Config: YamlConfig{
+		Config: pipeline.YamlConfig{
 			Parallel:   false,
 			StopOnFail: true,
 		},
-		Steps: []YamlStep{
+		Steps: []pipeline.YamlStep{
 			{
 				Type:   "build",
 				Name:   "build-image",
@@ -50,7 +35,7 @@ func TestYamlMarshalFormat(t *testing.T) {
 		},
 	}
 
-	yamlBytes, err := yaml.Marshal(pipeline)
+	yamlBytes, err := yaml.Marshal(p)
 	if err != nil {
 		t.Fatalf("yaml.Marshal failed: %v", err)
 	}
@@ -60,28 +45,24 @@ func TestYamlMarshalFormat(t *testing.T) {
 	if yamlStr == "" {
 		t.Error("yaml.Marshal returned empty string")
 	}
-
 	if yamlStr == "{}" {
 		t.Error("yaml.Marshal returned empty JSON-like object")
 	}
-
-	if !contains(yamlStr, "name: test-pipeline") {
+	if !strings.Contains(yamlStr, "name: test-pipeline") {
 		t.Error("Output does not contain pipeline name")
 	}
-
-	if !contains(yamlStr, "type: build") {
+	if !strings.Contains(yamlStr, "type: build") {
 		t.Error("Output does not contain step type 'build'")
 	}
-
-	if !contains(yamlStr, "type: push") {
+	if !strings.Contains(yamlStr, "type: push") {
 		t.Error("Output does not contain step type 'push'")
 	}
-
-	if !contains(yamlStr, "stop_on_fail: true") {
+	if !strings.Contains(yamlStr, "stop_on_fail: true") {
 		t.Error("Output does not contain stop_on_fail setting")
 	}
 }
 
+// TestYamlUnmarshalImport 验证 YAML 字符串能反序列化为 pipeline.YamlPipeline。
 func TestYamlUnmarshalImport(t *testing.T) {
 	yamlContent := `name: import-test-pipeline
 config:
@@ -98,56 +79,32 @@ steps:
     on_fail: continue
 `
 
-	type YamlStep struct {
-		Type   string `yaml:"type"`
-		Name   string `yaml:"name"`
-		Retry  int    `yaml:"retry,omitempty"`
-		OnFail string `yaml:"on_fail,omitempty"`
-		Config map[string]interface{} `yaml:"config,omitempty"`
-	}
-
-	type YamlConfig struct {
-		Parallel   bool `yaml:"parallel,omitempty"`
-		StopOnFail bool `yaml:"stop_on_fail"`
-	}
-
-	type YamlPipeline struct {
-		Name   string     `yaml:"name"`
-		Config YamlConfig `yaml:"config"`
-		Steps  []YamlStep `yaml:"steps"`
-	}
-
-	var yp YamlPipeline
-	err := yaml.Unmarshal([]byte(yamlContent), &yp)
-	if err != nil {
+	var yp pipeline.YamlPipeline
+	if err := yaml.Unmarshal([]byte(yamlContent), &yp); err != nil {
 		t.Fatalf("yaml.Unmarshal failed: %v", err)
 	}
 
 	if yp.Name != "import-test-pipeline" {
 		t.Errorf("Expected name 'import-test-pipeline', got '%s'", yp.Name)
 	}
-
 	if len(yp.Steps) != 2 {
 		t.Errorf("Expected 2 steps, got %d", len(yp.Steps))
 	}
-
 	if yp.Steps[0].Type != "build" {
 		t.Errorf("Expected first step type 'build', got '%s'", yp.Steps[0].Type)
 	}
-
 	if yp.Steps[1].Type != "deploy" {
 		t.Errorf("Expected second step type 'deploy', got '%s'", yp.Steps[1].Type)
 	}
-
 	if yp.Steps[1].Retry != 1 {
 		t.Errorf("Expected second step retry 1, got %d", yp.Steps[1].Retry)
 	}
-
 	if !yp.Config.StopOnFail {
 		t.Error("Expected StopOnFail to be true")
 	}
 }
 
+// TestImportPipelineValidation 验证非法 step type 在解析层能通过、由业务校验层拒绝。
 func TestImportPipelineValidation(t *testing.T) {
 	yamlContent := `name: invalid-pipeline
 config:
@@ -157,28 +114,8 @@ steps:
     name: invalid-step
 `
 
-	type YamlStep struct {
-		Type   string `yaml:"type"`
-		Name   string `yaml:"name"`
-		Retry  int    `yaml:"retry,omitempty"`
-		OnFail string `yaml:"on_fail,omitempty"`
-		Config map[string]interface{} `yaml:"config,omitempty"`
-	}
-
-	type YamlConfig struct {
-		Parallel   bool `yaml:"parallel,omitempty"`
-		StopOnFail bool `yaml:"stop_on_fail"`
-	}
-
-	type YamlPipeline struct {
-		Name   string     `yaml:"name"`
-		Config YamlConfig `yaml:"config"`
-		Steps  []YamlStep `yaml:"steps"`
-	}
-
-	var yp YamlPipeline
-	err := yaml.Unmarshal([]byte(yamlContent), &yp)
-	if err != nil {
+	var yp pipeline.YamlPipeline
+	if err := yaml.Unmarshal([]byte(yamlContent), &yp); err != nil {
 		t.Fatalf("yaml.Unmarshal should not fail for valid YAML structure: %v", err)
 	}
 
@@ -190,35 +127,21 @@ steps:
 	}
 }
 
+// TestEmptyPipelineExport 验证空 pipeline 仍能 Marshal 出带 name 字段的 YAML。
 func TestEmptyPipelineExport(t *testing.T) {
-	type YamlPipeline struct {
-		Name   string `yaml:"name"`
-		Config struct{} `yaml:"config"`
-		Steps  []struct{} `yaml:"steps"`
-	}
-
-	pipeline := YamlPipeline{
+	p := pipeline.YamlPipeline{
 		Name:   "empty-pipeline",
-		Config: struct{}{},
-		Steps:  []struct{}{},
+		Config: pipeline.YamlConfig{},
+		Steps:  []pipeline.YamlStep{},
 	}
 
-	yamlBytes, err := yaml.Marshal(pipeline)
+	yamlBytes, err := yaml.Marshal(p)
 	if err != nil {
 		t.Fatalf("yaml.Marshal failed: %v", err)
 	}
 
 	yamlStr := string(yamlBytes)
-	if !contains(yamlStr, "name: empty-pipeline") {
+	if !strings.Contains(yamlStr, "name: empty-pipeline") {
 		t.Error("Output does not contain pipeline name")
 	}
-}
-
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

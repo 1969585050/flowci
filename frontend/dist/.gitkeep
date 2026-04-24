@@ -1,0 +1,4 @@
+# Placeholder file.
+# This keeps frontend/dist/ tracked in git so //go:embed all:frontend/dist works
+# even on a fresh clone before `wails build` / `npm run build` is run.
+# Real build artifacts are gitignored (see .gitignore).

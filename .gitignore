@@ -16,6 +16,13 @@ dist/
 dist-ssr/
 *.local
 
+# 保留 frontend/dist/ 目录存在（即使内容由 wails build 生成）
+# 原因：main.go 的 //go:embed all:frontend/dist 需要目录存在才能编译；
+# .gitkeep 之外的内容全部 ignore
+!frontend/dist/
+frontend/dist/*
+!frontend/dist/.gitkeep
+
 # Wails
 build/
 

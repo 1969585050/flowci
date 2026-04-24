@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
+	"flowci/internal/pipeline"
 	"flowci/store"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -30,9 +33,9 @@ func TestIntegrationExportImportPipeline(t *testing.T) {
 		t.Fatalf("Failed to create project: %v", err)
 	}
 
-	pipeline, err := store.CreatePipeline(store.CreatePipelineInput{
+	created, err := store.CreatePipeline(store.CreatePipelineInput{
 		ProjectID: project.ID,
-		Name:     "test-pipeline",
+		Name:      "test-pipeline",
 		Steps: []store.PipelineStep{
 			{Type: "build", Name: "build-step", Retry: 0, OnFail: "stop", Config: map[string]interface{}{"tag": "latest"}},
 			{Type: "push", Name: "push-step", Retry: 1, OnFail: "continue", Config: map[string]interface{}{}},
@@ -46,7 +49,7 @@ func TestIntegrationExportImportPipeline(t *testing.T) {
 	app := &App{}
 	ctx := context.Background()
 
-	yamlOutput := app.ExportPipelineToYaml(ctx, pipeline.ID)
+	yamlOutput := app.ExportPipelineToYaml(ctx, created.ID)
 
 	t.Logf("Export output:\n%s", yamlOutput)
 
@@ -58,27 +61,11 @@ func TestIntegrationExportImportPipeline(t *testing.T) {
 		t.Fatal("Export returned empty JSON-like object")
 	}
 
-	if contains(yamlOutput, "# Pipeline not found") {
+	if strings.Contains(yamlOutput, "# Pipeline not found") {
 		t.Fatal("Export failed: pipeline not found")
 	}
 
-	type ExportedStep struct {
-		Type   string `yaml:"type"`
-		Name   string `yaml:"name"`
-		Retry  int    `yaml:"retry,omitempty"`
-		OnFail string `yaml:"on_fail,omitempty"`
-	}
-	type ExportedConfig struct {
-		Parallel   bool `yaml:"parallel,omitempty"`
-		StopOnFail bool `yaml:"stop_on_fail"`
-	}
-	type ExportedPipeline struct {
-		Name   string          `yaml:"name"`
-		Config ExportedConfig  `yaml:"config"`
-		Steps  []ExportedStep `yaml:"steps"`
-	}
-
-	var exported ExportedPipeline
+	var exported pipeline.YamlPipeline
 	if err := yaml.Unmarshal([]byte(yamlOutput), &exported); err != nil {
 		t.Fatalf("Failed to parse exported YAML: %v\nOutput was:\n%s", err, yamlOutput)
 	}

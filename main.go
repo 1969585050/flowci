@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,11 +15,13 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"flowci/internal/logger"
+	"flowci/internal/pipeline"
 	"flowci/store"
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed all:dist
+//go:embed all:frontend/dist
 var assets embed.FS
 
 type App struct {
@@ -31,13 +34,13 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	fmt.Println("Application starting...")
+	slog.Info("application starting")
 
 	dataDir := filepath.Join(getAppDataDir(), "FlowCI")
 	if err := store.Init(dataDir); err != nil {
-		fmt.Printf("Failed to initialize store: %v\n", err)
+		slog.Error("initialize store failed", "err", err)
 	}
-	fmt.Printf("Data directory: %s\n", dataDir)
+	slog.Info("data directory", "path", dataDir)
 }
 
 func getAppDataDir() string {
@@ -50,7 +53,7 @@ func getAppDataDir() string {
 }
 
 func (a *App) CheckDocker(ctx context.Context) map[string]interface{} {
-	fmt.Println("Checking Docker...")
+	slog.Debug("checking docker")
 
 	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
 	output, err := cmd.Output()
@@ -70,7 +73,7 @@ func (a *App) CheckDocker(ctx context.Context) map[string]interface{} {
 func (a *App) ListProjects(ctx context.Context) []map[string]interface{} {
 	projects, err := store.ListProjects()
 	if err != nil {
-		fmt.Printf("ListProjects error: %v\n", err)
+		slog.Error("list projects failed", "err", err)
 		return []map[string]interface{}{}
 	}
 
@@ -92,7 +95,7 @@ func (a *App) ListImages(ctx context.Context) []map[string]interface{} {
 	cmd := exec.Command("docker", "images", "--format", "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedAt}}")
 	output, err := cmd.Output()
 	if err != nil {
-		fmt.Printf("Failed to list docker images: %v\n", err)
+		slog.Error("list docker images failed", "err", err)
 		return []map[string]interface{}{}
 	}
 
@@ -167,7 +170,7 @@ func (a *App) CreateProject(ctx context.Context, data map[string]interface{}) ma
 
 	p, err := store.CreateProject(input)
 	if err != nil {
-		fmt.Printf("CreateProject error: %v\n", err)
+		slog.Error("create project failed", "err", err)
 		return nil
 	}
 
@@ -183,7 +186,7 @@ func (a *App) CreateProject(ctx context.Context, data map[string]interface{}) ma
 
 func (a *App) DeleteProject(ctx context.Context, projectId string) bool {
 	if err := store.DeleteProject(projectId); err != nil {
-		fmt.Printf("DeleteProject error: %v\n", err)
+		slog.Error("delete project failed", "err", err)
 		return false
 	}
 	return true
@@ -203,7 +206,7 @@ func (a *App) UpdateProject(ctx context.Context, data map[string]interface{}) ma
 
 	p, err := store.UpdateProject(projectId, input)
 	if err != nil {
-		fmt.Printf("UpdateProject error: %v\n", err)
+		slog.Error("update project failed", "err", err)
 		return nil
 	}
 
@@ -220,7 +223,7 @@ func (a *App) UpdateProject(ctx context.Context, data map[string]interface{}) ma
 func (a *App) ListPipelines(ctx context.Context, projectId string) []map[string]interface{} {
 	pipelines, err := store.ListPipelines(projectId)
 	if err != nil {
-		fmt.Printf("ListPipelines error: %v\n", err)
+		slog.Error("list pipelines failed", "err", err)
 		return []map[string]interface{}{}
 	}
 
@@ -286,7 +289,7 @@ func (a *App) CreatePipeline(ctx context.Context, data map[string]interface{}) m
 
 	p, err := store.CreatePipeline(input)
 	if err != nil {
-		fmt.Printf("CreatePipeline error: %v\n", err)
+		slog.Error("create pipeline failed", "err", err)
 		return map[string]interface{}{"error": err.Error()}
 	}
 
@@ -302,40 +305,21 @@ func (a *App) CreatePipeline(ctx context.Context, data map[string]interface{}) m
 
 func (a *App) DeletePipeline(ctx context.Context, pipelineId string) bool {
 	if err := store.DeletePipeline(pipelineId); err != nil {
-		fmt.Printf("DeletePipeline error: %v\n", err)
+		slog.Error("delete pipeline failed", "err", err)
 		return false
 	}
 	return true
 }
 
 func (a *App) ExportPipelineToYaml(ctx context.Context, pipelineId string) string {
-	pipeline, err := store.GetPipeline(pipelineId)
+	p, err := store.GetPipeline(pipelineId)
 	if err != nil {
 		return "# Pipeline not found"
 	}
 
-	type YamlStep struct {
-		Type   string `yaml:"type"`
-		Name   string `yaml:"name"`
-		Retry  int    `yaml:"retry,omitempty"`
-		OnFail string `yaml:"on_fail,omitempty"`
-		Config map[string]interface{} `yaml:"config,omitempty"`
-	}
-
-	type YamlConfig struct {
-		Parallel   bool `yaml:"parallel,omitempty"`
-		StopOnFail bool `yaml:"stop_on_fail"`
-	}
-
-	type YamlPipeline struct {
-		Name   string     `yaml:"name"`
-		Config YamlConfig `yaml:"config"`
-		Steps  []YamlStep `yaml:"steps"`
-	}
-
-	steps := make([]YamlStep, len(pipeline.Steps))
-	for i, s := range pipeline.Steps {
-		steps[i] = YamlStep{
+	steps := make([]pipeline.YamlStep, len(p.Steps))
+	for i, s := range p.Steps {
+		steps[i] = pipeline.YamlStep{
 			Type:   s.Type,
 			Name:   s.Name,
 			Retry:  s.Retry,
@@ -344,11 +328,11 @@ func (a *App) ExportPipelineToYaml(ctx context.Context, pipelineId string) strin
 		}
 	}
 
-	yp := YamlPipeline{
-		Name: pipeline.Name,
-		Config: YamlConfig{
-			Parallel:   pipeline.Config.Parallel,
-			StopOnFail: pipeline.Config.StopOnFail,
+	yp := pipeline.YamlPipeline{
+		Name: p.Name,
+		Config: pipeline.YamlConfig{
+			Parallel:   p.Config.Parallel,
+			StopOnFail: p.Config.StopOnFail,
 		},
 		Steps: steps,
 	}
@@ -372,26 +356,7 @@ func (a *App) ImportPipelineFromYaml(ctx context.Context, data map[string]interf
 		return map[string]interface{}{"error": "yaml content is required"}
 	}
 
-	type YamlStep struct {
-		Type   string `yaml:"type"`
-		Name   string `yaml:"name"`
-		Retry  int    `yaml:"retry,omitempty"`
-		OnFail string `yaml:"on_fail,omitempty"`
-		Config map[string]interface{} `yaml:"config,omitempty"`
-	}
-
-	type YamlConfig struct {
-		Parallel   bool `yaml:"parallel,omitempty"`
-		StopOnFail bool `yaml:"stop_on_fail"`
-	}
-
-	type YamlPipeline struct {
-		Name   string     `yaml:"name"`
-		Config YamlConfig `yaml:"config"`
-		Steps  []YamlStep `yaml:"steps"`
-	}
-
-	var yp YamlPipeline
+	var yp pipeline.YamlPipeline
 	if err := yaml.Unmarshal([]byte(yamlContent), &yp); err != nil {
 		return map[string]interface{}{"error": fmt.Sprintf("invalid yaml: %v", err)}
 	}
@@ -413,24 +378,24 @@ func (a *App) ImportPipelineFromYaml(ctx context.Context, data map[string]interf
 
 	input := store.CreatePipelineInput{
 		ProjectID: projectId,
-		Name:     yp.Name,
-		Steps:    steps,
+		Name:      yp.Name,
+		Steps:     steps,
 		Config: store.PipelineConfig{
 			Parallel:   yp.Config.Parallel,
 			StopOnFail: yp.Config.StopOnFail,
 		},
 	}
 
-	pipeline, err := store.CreatePipeline(input)
+	created, err := store.CreatePipeline(input)
 	if err != nil {
 		return map[string]interface{}{"error": err.Error()}
 	}
 
 	return map[string]interface{}{
-		"id":         pipeline.ID,
-		"name":       pipeline.Name,
-		"steps":      pipeline.Steps,
-		"created_at": pipeline.CreatedAt.Format(time.RFC3339),
+		"id":         created.ID,
+		"name":       created.Name,
+		"steps":      created.Steps,
+		"created_at": created.CreatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -457,7 +422,7 @@ func (a *App) ExecutePipeline(ctx context.Context, data map[string]interface{}) 
 		var stepErr error
 		for retry := 0; retry <= step.Retry; retry++ {
 			if retry > 0 {
-				fmt.Printf("Retrying step %s (attempt %d)\n", step.Name, retry)
+				slog.Info("retrying pipeline step", "step", step.Name, "attempt", retry)
 			}
 
 			switch step.Type {
@@ -615,10 +580,6 @@ func buildImage(projectId, tag, contextPath string, noCache, pullLatest bool) ma
 	}
 }
 
-func pushImage(imageName, registry string) map[string]interface{} {
-	return pushImageWithCreds(imageName, registry, "", "")
-}
-
 func pushImageWithCreds(imageName, registry, username, password string) map[string]interface{} {
 	targetImage := imageName
 
@@ -695,7 +656,7 @@ func deployContainer(imageName, name, hostPort, containerPort, restartPolicy, en
 func (a *App) ListBuildRecords(ctx context.Context, projectId string) []map[string]interface{} {
 	records, err := store.ListBuildRecords(projectId)
 	if err != nil {
-		fmt.Printf("ListBuildRecords error: %v\n", err)
+		slog.Error("list build records failed", "err", err)
 		return []map[string]interface{}{}
 	}
 
@@ -720,7 +681,7 @@ func (a *App) ListBuildRecords(ctx context.Context, projectId string) []map[stri
 func (a *App) GetBuildRecord(ctx context.Context, recordId string) map[string]interface{} {
 	r, err := store.GetBuildRecord(recordId)
 	if err != nil {
-		fmt.Printf("GetBuildRecord error: %v\n", err)
+		slog.Error("get build record failed", "err", err)
 		return nil
 	}
 
@@ -857,21 +818,21 @@ func (a *App) ListContainers(ctx context.Context) []map[string]interface{} {
 }
 
 func (a *App) StartContainer(ctx context.Context, containerId string) bool {
-	fmt.Printf("Starting container: %s\n", containerId)
+	slog.Info("starting container", "id", containerId)
 	cmd := exec.Command("docker", "start", containerId)
 	err := cmd.Run()
 	return err == nil
 }
 
 func (a *App) StopContainer(ctx context.Context, containerId string) bool {
-	fmt.Printf("Stopping container: %s\n", containerId)
+	slog.Info("stopping container", "id", containerId)
 	cmd := exec.Command("docker", "stop", containerId)
 	err := cmd.Run()
 	return err == nil
 }
 
 func (a *App) RemoveContainer(ctx context.Context, containerId string) bool {
-	fmt.Printf("Removing container: %s\n", containerId)
+	slog.Info("removing container", "id", containerId)
 	cmd := exec.Command("docker", "rm", "-f", containerId)
 	err := cmd.Run()
 	return err == nil
@@ -1027,7 +988,7 @@ func (a *App) GetSupportedLanguages(ctx context.Context) []map[string]string {
 func (a *App) GetSettings(ctx context.Context) map[string]string {
 	settings, err := store.GetSettings()
 	if err != nil {
-		fmt.Printf("GetSettings error: %v\n", err)
+		slog.Error("get settings failed", "err", err)
 		return map[string]string{}
 	}
 	return settings
@@ -1037,7 +998,7 @@ func (a *App) SaveSettings(ctx context.Context, data map[string]interface{}) boo
 	for key, val := range data {
 		if str, ok := val.(string); ok {
 			if err := store.SaveSettings(key, str); err != nil {
-				fmt.Printf("SaveSettings error: %v\n", err)
+				slog.Error("save settings failed", "err", err)
 				return false
 			}
 		}
@@ -1211,6 +1172,11 @@ func (a *App) PushImage(ctx context.Context, data map[string]interface{}) (map[s
 }
 
 func main() {
+	dataDir := filepath.Join(getAppDataDir(), "FlowCI")
+	if _, err := logger.Init(filepath.Join(dataDir, "logs")); err != nil {
+		fmt.Fprintln(os.Stderr, "logger init warning:", err)
+	}
+
 	app := NewApp()
 
 	err := wails.Run(&options.App{
@@ -1232,6 +1198,6 @@ func main() {
 	})
 
 	if err != nil {
-		fmt.Println("Error:", err)
+		slog.Error("wails run failed", "err", err)
 	}
 }
