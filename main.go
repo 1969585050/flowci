@@ -205,7 +205,7 @@ CMD ["./main"]`,
 func main() {
 	app := NewApp()
 
-	err := wails.Run(app, &options.App{
+	err := wails.Run(&options.App{
 		Title:  "FlowCI",
 		Width:  1200,
 		Height: 800,
