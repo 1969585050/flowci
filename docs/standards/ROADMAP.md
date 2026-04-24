@@ -9,9 +9,9 @@
 
 | 阶段 | 目标 | 预计工时 | 状态 |
 |---|---|---|---|
-| **阶段 0** | 立规范、定基线 | 0.5 天 | 🟡 进行中 |
-| **阶段 1** | 清理 Tauri 残留 + 死代码 + slog 日志 | 1 天 | ⏳ 待开始 |
-| **阶段 2** | 拆 main.go + 强类型化 + SQLite 改造 + exec 超时 | 3-5 天 | ⏳ 待开始 |
+| **阶段 0** | 立规范、定基线 | 0.5 天 | ✅ 完成 (commit `ea8ae00`) |
+| **阶段 1** | 清理 Tauri 残留 + 死代码 + slog 日志 | 1 天 | ✅ 完成 (commit `565fb8d`) |
+| **阶段 2** | 拆 main.go + 强类型化 + SQLite 改造 + exec 超时 | 3-5 天 | 🟡 进行中 |
 | **阶段 3** | 凭证 keyring + build log 瘦身 + 参数校验 + 并发锁 | 2-3 天 | ⏳ 待开始 |
 
 **总计**: 约 7-10 个工作日。每个阶段结束都是一次稳定基线，可以暂停。
@@ -40,38 +40,37 @@
 
 ---
 
-## 阶段 1 — 清理
+## 阶段 1 — 清理 ✅
 
-**目标**: 删掉该删的、把日志规整起来、给后续重构腾出干净的起跑线。
+**已完成** (commit `565fb8d`)
 
 ### 任务清单
 
-#### 1.1 删 Tauri 残留
-- [ ] 删根目录 `package.json`
-- [ ] 删根目录 `vite.config.ts`
-- [ ] 删根目录 `index.html`
-- [ ] `frontend/package.json` 去掉 `@tauri-apps/*` 和 `axios` 如无使用
-- [ ] `wails.json` 确认 `frontend:install` / `frontend:build` 指向 `frontend/` 目录
-- [ ] `main.go` 的 `//go:embed` 改成 `all:frontend/dist`
-- [ ] 验证 `wails build -clean` 能出 EXE
+#### 1.1 删 Tauri 残留 ✅
+- [x] 删根目录 `package.json` / `vite.config.ts` / `index.html`
+- [x] `wails.json` 改 `frontend:install` / `frontend:build` / `frontend:dev` / `frontend:dir` 指向 `frontend/`
+- [x] `main.go` 的 `//go:embed` 改成 `all:frontend/dist`
+- [x] `.gitignore` 加 `frontend/dist/.gitkeep` 占位（裸 `go build` 可过）
+- [ ] 实际 `wails build -clean` 验证（阶段末或 v0.2.0 前手动验证）
 
-#### 1.2 删死代码
-- [ ] 删 `pushImage`（无凭证版，`main.go:618-620`），未被调用
-- [ ] 删 `PipelineConfig.Parallel` 字段（无实现），或者进入阶段 2 时标记为 TODO 并在阶段 2 实现
-- [ ] 删 `main_test.go` 里自己写的 `contains()`，用 `strings.Contains`
+#### 1.2 删死代码 ✅
+- [x] 删 `pushImage`（无凭证版，原 main.go:618-620）
+- [x] `PipelineConfig.Parallel` 加 TODO 注释（阶段 2 实现）
+- [x] 删 `main_test.go` 里自写的 `contains()`，改 `strings.Contains`
 
-#### 1.3 统一 YAML 类型
-- [ ] 新建 `internal/pipeline/yaml.go`，定义 `YamlPipeline` / `YamlStep` / `YamlConfig` **一次**
-- [ ] `main.go` 导出/导入、两个 test 文件，全部 import 这个定义
+#### 1.3 统一 YAML 类型 ✅
+- [x] 新建 `internal/pipeline/yaml.go`，统一 `YamlPipeline`/`YamlStep`/`YamlConfig`
+- [x] `main.go` + `main_test.go` + `main_integration_test.go` 全部使用包级定义
+- [x] `main_integration_test.go` 遮蔽包名的 `pipeline` 局部变量重命名为 `created`
 
-#### 1.4 日志改 slog
-- [ ] 新建 `internal/logger/logger.go`：slog + 文件 rotation
-- [ ] 替换所有 `fmt.Printf` / `fmt.Println` 为 `slog.Info` / `slog.Error`
-- [ ] 日志文件路径 `%APPDATA%/FlowCI/logs/flowci-YYYY-MM-DD.log`
+#### 1.4 日志改 slog ✅
+- [x] 新建 `internal/logger/logger.go`：TextHandler + stderr + 日期切割文件
+- [x] 19 处 `fmt.Printf`/`fmt.Println` 全部替换为 `slog.Info/Error/Debug`
+- [x] `main()` 内提前初始化 logger
 
-#### 1.5 统一命名
-- [ ] `json` tag 统一 camelCase（snake → camel）
-- [ ] 前端手写 interface 与 wailsjs 生成类型对齐（或删手写版）
+#### 1.5 统一命名 ⏸
+- [ ] JSON tag 统一 camelCase → **推迟到阶段 2.2 与强类型化一起做**（先改命名再重写签名是返工）
+- [ ] 前端手写 interface 与 wailsjs 对齐 → **推迟到阶段 2.2**
 
 ### 验收标准
 
@@ -83,7 +82,7 @@
 
 ---
 
-## 阶段 2 — 重构（重头戏）
+## 阶段 2 — 重构（重头戏）🟡
 
 **目标**: 代码结构符合 backend-spec，类型系统用起来，SQLite 用对。
 
