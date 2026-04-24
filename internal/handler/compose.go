@@ -54,7 +54,7 @@ func (a *App) DeployWithCompose(ctx context.Context, req *DeployWithComposeReque
 		return nil, err
 	}
 
-	res, err := docker.DeployWithCompose(ctx, req.Compose, workdir)
+	res, err := a.docker.DeployWithCompose(ctx, req.Compose, workdir)
 	if err != nil {
 		return &res, err
 	}

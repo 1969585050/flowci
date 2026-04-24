@@ -11,7 +11,7 @@ import (
 
 // ListImages 列出本机 docker 镜像。
 func (a *App) ListImages(ctx context.Context) ([]docker.Image, error) {
-	return docker.ListImages(ctx)
+	return a.docker.ListImages(ctx)
 }
 
 // RemoveImage 按 ID 删除镜像。
@@ -20,7 +20,7 @@ func (a *App) RemoveImage(ctx context.Context, id string) error {
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("%w: id required", ErrBadRequest)
 	}
-	if err := docker.RemoveImage(ctx, id); err != nil {
+	if err := a.docker.RemoveImage(ctx, id); err != nil {
 		switch {
 		case errors.Is(err, docker.ErrImageNotFound):
 			return fmt.Errorf("镜像不存在: %w", err)

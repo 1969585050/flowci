@@ -37,7 +37,7 @@ func (a *App) BuildImage(ctx context.Context, req *BuildImageRequest) (*docker.B
 		return nil, fmt.Errorf("create build record: %w", err)
 	}
 
-	res, buildErr := docker.BuildImage(ctx, docker.BuildRequest{
+	res, buildErr := a.docker.BuildImage(ctx, docker.BuildRequest{
 		Tag:         req.Tag,
 		ContextPath: req.ContextPath,
 		NoCache:     req.NoCache,

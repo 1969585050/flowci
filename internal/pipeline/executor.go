@@ -39,18 +39,26 @@ type ExecuteResult struct {
 var ErrPipelineBusy = errors.New("pipeline is busy")
 
 // Executor 流水线执行器，内部持有 per-pipeline 锁防止并发重复提交。
-// logsDir 会传给 store.FinishBuildRecord 用于写构建日志到磁盘。
+// docker 字段是 Client 接口；测试注入 fake 实现，生产为 docker.NewClient()。
 type Executor struct {
 	mu      sync.Mutex
 	locks   map[string]*sync.Mutex
 	logsDir string
+	docker  docker.Client
 }
 
-// NewExecutor 构造新的执行器。logsDir 通常为 config.BuildLogsDir()，可传空串跳过日志落盘。
+// NewExecutor 构造执行器，内部使用默认 docker.NewClient()。
+// logsDir 通常为 config.BuildLogsDir()，可传空串跳过日志落盘。
 func NewExecutor(logsDir string) *Executor {
+	return NewExecutorWithClient(logsDir, docker.NewClient())
+}
+
+// NewExecutorWithClient 同 NewExecutor，但允许注入自定义 docker.Client（测试用）。
+func NewExecutorWithClient(logsDir string, client docker.Client) *Executor {
 	return &Executor{
 		locks:   make(map[string]*sync.Mutex),
 		logsDir: logsDir,
+		docker:  client,
 	}
 }
 
@@ -75,9 +83,11 @@ func (e *Executor) Execute(ctx context.Context, pipelineID, projectID string) (E
 	for _, step := range p.Steps {
 		log, stopOnFailure := e.runStep(ctx, projectID, step, p.Config.StopOnFail)
 		logs = append(logs, log)
-		if log.Status == StepFailed && stopOnFailure {
+		if log.Status == StepFailed {
 			allSuccess = false
-			break
+			if stopOnFailure {
+				break
+			}
 		}
 	}
 
@@ -135,9 +145,9 @@ func (e *Executor) dispatchStep(ctx context.Context, projectID string, step stor
 	case "build":
 		return e.runBuildStep(ctx, projectID, step)
 	case "push":
-		return runPushStep(ctx, step)
+		return e.runPushStep(ctx, step)
 	case "deploy":
-		return runDeployStep(ctx, step)
+		return e.runDeployStep(ctx, step)
 	default:
 		return "", fmt.Errorf("unknown step type: %s", step.Type)
 	}
@@ -155,7 +165,7 @@ func (e *Executor) runBuildStep(ctx context.Context, projectID string, step stor
 		return "", fmt.Errorf("create build record: %w", err)
 	}
 
-	res, buildErr := docker.BuildImage(ctx, docker.BuildRequest{
+	res, buildErr := e.docker.BuildImage(ctx, docker.BuildRequest{
 		Tag:         tag,
 		ContextPath: contextPath,
 	})
@@ -174,13 +184,13 @@ func (e *Executor) runBuildStep(ctx context.Context, projectID string, step stor
 	return fmt.Sprintf("Built: %s:%s", res.ImageName, res.ImageTag), nil
 }
 
-func runPushStep(ctx context.Context, step store.PipelineStep) (string, error) {
+func (e *Executor) runPushStep(ctx context.Context, step store.PipelineStep) (string, error) {
 	imageName, _ := step.Config["imageName"].(string)
 	registry, _ := step.Config["registry"].(string)
 	username, _ := step.Config["username"].(string)
 	password, _ := step.Config["password"].(string)
 
-	if _, err := docker.PushImage(ctx, docker.PushRequest{
+	if _, err := e.docker.PushImage(ctx, docker.PushRequest{
 		Image:    imageName,
 		Registry: registry,
 		Username: username,
@@ -191,14 +201,14 @@ func runPushStep(ctx context.Context, step store.PipelineStep) (string, error) {
 	return "Image pushed successfully", nil
 }
 
-func runDeployStep(ctx context.Context, step store.PipelineStep) (string, error) {
+func (e *Executor) runDeployStep(ctx context.Context, step store.PipelineStep) (string, error) {
 	image, _ := step.Config["imageName"].(string)
 	name, _ := step.Config["name"].(string)
 	hostPort, _ := step.Config["hostPort"].(string)
 	containerPort, _ := step.Config["containerPort"].(string)
 	restartPolicy, _ := step.Config["restartPolicy"].(string)
 
-	if _, err := docker.Deploy(ctx, docker.DeployRequest{
+	if _, err := e.docker.Deploy(ctx, docker.DeployRequest{
 		Image:         image,
 		Name:          name,
 		HostPort:      hostPort,

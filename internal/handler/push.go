@@ -47,7 +47,7 @@ func (a *App) PushImage(ctx context.Context, req *PushImageRequest) (*docker.Pus
 		"username", req.Username,
 		"password", secret.Mask(password))
 
-	res, err := docker.PushImage(ctx, docker.PushRequest{
+	res, err := a.docker.PushImage(ctx, docker.PushRequest{
 		Image:    req.Image,
 		Registry: req.Registry,
 		Username: req.Username,

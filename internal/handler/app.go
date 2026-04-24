@@ -10,19 +10,28 @@ import (
 	"flowci/internal/store"
 )
 
-// App 是 Wails Bind 的主入口，持有跨请求的状态（executor 的 per-pipeline 锁）。
+// App 是 Wails Bind 的主入口，持有跨请求的状态（executor 的 per-pipeline 锁 + docker 客户端）。
+// docker 字段是接口，测试可通过 NewAppWithClient 注入 fake。
 type App struct {
 	ctx      context.Context
 	dataDir  string
 	executor *pipeline.Executor
+	docker   docker.Client
 }
 
-// NewApp 构造 App 实例。dataDir 来自 config.DataDir()，用于 store.Init 和 build log 落盘。
+// NewApp 构造 App 实例，内部用默认 docker.NewClient()。
+// dataDir 来自 config.DataDir()，用于 store.Init 和 build log 落盘。
 func NewApp(dataDir string) *App {
+	return NewAppWithClient(dataDir, docker.NewClient())
+}
+
+// NewAppWithClient 同 NewApp，但允许注入自定义 docker.Client（测试用）。
+func NewAppWithClient(dataDir string, client docker.Client) *App {
 	buildLogsDir := filepath.Join(dataDir, "logs", "builds")
 	return &App{
 		dataDir:  dataDir,
-		executor: pipeline.NewExecutor(buildLogsDir),
+		executor: pipeline.NewExecutorWithClient(buildLogsDir, client),
+		docker:   client,
 	}
 }
 
@@ -46,5 +55,5 @@ func (a *App) Shutdown(ctx context.Context) {
 // CheckDocker 探测本机 docker daemon 连通性。
 // 永不返回 error：连不上时返回 Status{Connected: false}。
 func (a *App) CheckDocker(ctx context.Context) docker.Status {
-	return docker.Check(ctx)
+	return a.docker.Check(ctx)
 }
