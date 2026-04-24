@@ -12,7 +12,7 @@
 | **阶段 0** | 立规范、定基线 | 0.5 天 | ✅ 完成 (commit `ea8ae00`) |
 | **阶段 1** | 清理 Tauri 残留 + 死代码 + slog 日志 | 1 天 | ✅ 完成 (commit `565fb8d`) |
 | **阶段 2** | 拆 main.go + 强类型化 + SQLite 改造 + exec 超时 | 3-5 天 | 🟢 后端完成；前端 2.G 需手动（见 FRONTEND_MIGRATION.md） |
-| **阶段 3** | 凭证 keyring + build log 瘦身 + 参数校验 + 并发锁 | 2-3 天 | ⏳ 待开始 |
+| **阶段 3** | 凭证 keyring + build log 瘦身 + 参数校验 + 并发锁 | 2-3 天 | 🟢 后端完成；前端 3.5 待前端迁移后做 |
 
 **总计**: 约 7-10 个工作日。每个阶段结束都是一次稳定基线，可以暂停。
 
@@ -157,43 +157,46 @@
 
 ---
 
-## 阶段 3 — 安全 & 体验
+## 阶段 3 — 安全 & 体验 🟢 后端完成
 
-**目标**: 修补安全隐患、提升使用体验。
+### 3.1 凭证 keyring ✅ (MVP)
 
-### 3.1 凭证 keyring
+- [x] 引入 `github.com/zalando/go-keyring` v0.2.8
+- [x] 新建 `internal/secret/keyring.go`（Set / Get / Delete + ErrNotFound 重导出）
+- [x] 新建 `internal/secret/mask.go`（`Mask` + `MaskStruct` 反射遮蔽 `mask:"true"` 字段）
+- [x] `handler/push.go`：Password 空时从 keyring 读 `registry:<host>`；日志 Mask 遮蔽
+- [ ] `registry_credentials` 表 + Save/List/Delete handler 方法（等前端 UI，阶段 3 后追加）
 
-- [ ] 引入 `github.com/zalando/go-keyring`
-- [ ] 新建 `internal/secret/keyring.go`（Set / Get / Delete / Mask）
-- [ ] 修改 `PushImage`：password 不进 IPC Request 或仅短生命周期
-- [ ] 新建 `registry_credentials` 表（存 registry_url + username + has_password）
-- [ ] IPC 日志中间件遮蔽敏感字段（`mask:"true"` tag）
+### 3.2 build log 瘦身 ✅
 
-### 3.2 build log 瘦身
+- [x] `migrations/0002_build_log_path.sql`: ADD COLUMN log_path + log_size
+- [x] `FinishBuildRecord` 写磁盘到 `<dataDir>/logs/builds/<id>.log`
+- [x] `GetBuildRecord` 按 `log_path` 读；无则回退 `log` 字段（历史兼容）
+- [x] `ListBuildRecords` 去 log 字段（LogSize 字段替代展示）
+- [x] `pipeline.Executor` 加 `logsDir` 字段贯通
+- [ ] `CleanupOldBuilds()` 清理 200+ 老记录（后续 iteration）
 
-- [ ] `build_records` 表改 `log` TEXT → `log_path` TEXT + `log_size` INTEGER
-- [ ] 构建时 docker output 写 `logs/builds/<build-id>.log`
-- [ ] `GetBuildRecord` 按需读文件；列表查询不读
-- [ ] `CleanupOldBuilds()` 清理超过 200 条的记录 + 对应 log 文件
+### 3.3 参数白名单 ✅
 
-### 3.3 参数白名单
+- [x] 新建 `internal/validate/` 包：ContainerName/ImageRef/Port/RegistryHost/EnvMultiline
+- [x] 单元测试覆盖正负样本
+- [x] `handler/container.go` DeployContainer 过 5 项校验
+- [x] `handler/compose.go` GenerateCompose + workdir 白名单（限在 data dir 下）
+- [x] `handler/push.go` PushImage 过 ImageRef + RegistryHost
+- [x] `handler/build.go` BuildImage 过 Tag ImageRef
 
-- [ ] `internal/docker/validator.go` 实现正则校验（见 [ipc-spec.md § 6.3](./ipc-spec.md)）
-- [ ] Container name / image ref / port / registry host / env key 全部过一遍
-- [ ] DeployWithCompose 的 `workDir` 限制在 data dir 下
+### 3.4 并发锁 ✅
 
-### 3.4 并发锁
+- [x] `pipeline.Executor` per-pipeline `sync.Mutex` + TryLock（阶段 2.D 已完成）
+- [x] 重复提交返回 `ErrPipelineBusy`
+- [ ] 前端运行按钮执行中禁用 → 前端迁移阶段做
 
-- [ ] `internal/pipeline/executor.go` 加 per-pipeline `sync.Mutex`
-- [ ] 重复提交同一 pipeline 返回 `ErrPipelineBusy`
-- [ ] 前端 "运行" 按钮执行中禁用
+### 3.5 前端体验 ⏸ 依赖前端迁移
 
-### 3.5 前端体验
-
-- [ ] 主题移除 localStorage，单走 SQLite + Pinia store
-- [ ] `ListAllPipelines()` 后端聚合，消除前端 N+1
-- [ ] 错误提示统一 toast，不用 alert / confirm 原生对话框
-- [ ] 对话框组件抽出 `ConfirmDialog.vue`
+- [ ] 主题移除 localStorage，走 SQLite + Pinia
+- [ ] 前端调用 `ListAllPipelines()` 消除 N+1（后端已提供）
+- [ ] Toast 统一，弃用 alert/confirm
+- [ ] `ConfirmDialog.vue` 抽出
 
 ### 验收标准
 

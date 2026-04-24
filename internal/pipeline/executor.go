@@ -39,14 +39,19 @@ type ExecuteResult struct {
 var ErrPipelineBusy = errors.New("pipeline is busy")
 
 // Executor 流水线执行器，内部持有 per-pipeline 锁防止并发重复提交。
+// logsDir 会传给 store.FinishBuildRecord 用于写构建日志到磁盘。
 type Executor struct {
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
+	mu      sync.Mutex
+	locks   map[string]*sync.Mutex
+	logsDir string
 }
 
-// NewExecutor 构造新的执行器。全局通常一个实例即可（handler 包持有）。
-func NewExecutor() *Executor {
-	return &Executor{locks: make(map[string]*sync.Mutex)}
+// NewExecutor 构造新的执行器。logsDir 通常为 config.BuildLogsDir()，可传空串跳过日志落盘。
+func NewExecutor(logsDir string) *Executor {
+	return &Executor{
+		locks:   make(map[string]*sync.Mutex),
+		logsDir: logsDir,
+	}
 }
 
 // Execute 按顺序执行 pipelineID 对应的流水线。
@@ -68,7 +73,7 @@ func (e *Executor) Execute(ctx context.Context, pipelineID, projectID string) (E
 	allSuccess := true
 
 	for _, step := range p.Steps {
-		log, stopOnFailure := runStep(ctx, projectID, step, p.Config.StopOnFail)
+		log, stopOnFailure := e.runStep(ctx, projectID, step, p.Config.StopOnFail)
 		logs = append(logs, log)
 		if log.Status == StepFailed && stopOnFailure {
 			allSuccess = false
@@ -97,7 +102,7 @@ func (e *Executor) getLock(id string) *sync.Mutex {
 
 // runStep 执行单步，含 step.Retry 次数的重试。
 // 第二个返回值表示"失败时是否整体停止"。
-func runStep(ctx context.Context, projectID string, step store.PipelineStep, stopOnFail bool) (StepLog, bool) {
+func (e *Executor) runStep(ctx context.Context, projectID string, step store.PipelineStep, stopOnFail bool) (StepLog, bool) {
 	log := StepLog{Step: step.Name, Type: step.Type}
 
 	var stepErr error
@@ -106,7 +111,7 @@ func runStep(ctx context.Context, projectID string, step store.PipelineStep, sto
 		if attempt > 0 {
 			slog.Info("retrying pipeline step", "step", step.Name, "attempt", attempt)
 		}
-		message, stepErr = dispatchStep(ctx, projectID, step)
+		message, stepErr = e.dispatchStep(ctx, projectID, step)
 		if stepErr == nil {
 			break
 		}
@@ -125,10 +130,10 @@ func runStep(ctx context.Context, projectID string, step store.PipelineStep, sto
 }
 
 // dispatchStep 按 step.Type 分发到 docker 包的具体操作。
-func dispatchStep(ctx context.Context, projectID string, step store.PipelineStep) (string, error) {
+func (e *Executor) dispatchStep(ctx context.Context, projectID string, step store.PipelineStep) (string, error) {
 	switch step.Type {
 	case "build":
-		return runBuildStep(ctx, projectID, step)
+		return e.runBuildStep(ctx, projectID, step)
 	case "push":
 		return runPushStep(ctx, step)
 	case "deploy":
@@ -138,7 +143,7 @@ func dispatchStep(ctx context.Context, projectID string, step store.PipelineStep
 	}
 }
 
-func runBuildStep(ctx context.Context, projectID string, step store.PipelineStep) (string, error) {
+func (e *Executor) runBuildStep(ctx context.Context, projectID string, step store.PipelineStep) (string, error) {
 	tag, _ := step.Config["tag"].(string)
 	if tag == "" {
 		tag = "latest"
@@ -159,7 +164,7 @@ func runBuildStep(ctx context.Context, projectID string, step store.PipelineStep
 	if buildErr != nil {
 		status = "failed"
 	}
-	if finishErr := store.FinishBuildRecord(record.ID, status, res.Log); finishErr != nil {
+	if finishErr := store.FinishBuildRecord(record.ID, status, res.Log, e.logsDir); finishErr != nil {
 		slog.Error("finish build record failed", "id", record.ID, "err", finishErr)
 	}
 

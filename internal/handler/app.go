@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"log/slog"
+	"path/filepath"
 
 	"flowci/internal/docker"
 	"flowci/internal/pipeline"
@@ -16,11 +17,12 @@ type App struct {
 	executor *pipeline.Executor
 }
 
-// NewApp 构造 App 实例。dataDir 来自 config.DataDir()，用于 store.Init。
+// NewApp 构造 App 实例。dataDir 来自 config.DataDir()，用于 store.Init 和 build log 落盘。
 func NewApp(dataDir string) *App {
+	buildLogsDir := filepath.Join(dataDir, "logs", "builds")
 	return &App{
 		dataDir:  dataDir,
-		executor: pipeline.NewExecutor(),
+		executor: pipeline.NewExecutor(buildLogsDir),
 	}
 }
 

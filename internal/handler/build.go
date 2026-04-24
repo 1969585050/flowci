@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 
 	"flowci/internal/docker"
 	"flowci/internal/store"
+	"flowci/internal/validate"
 )
 
 // BuildImage 构建单个镜像（非 pipeline 路径，直接 UI 触发）。
@@ -19,6 +21,9 @@ func (a *App) BuildImage(ctx context.Context, req *BuildImageRequest) (*docker.B
 	}
 	if strings.TrimSpace(req.Tag) == "" {
 		return nil, fmt.Errorf("%w: tag required", ErrBadRequest)
+	}
+	if err := validate.ImageRef(req.Tag); err != nil {
+		return nil, fmt.Errorf("%w: tag %v", ErrBadRequest, err)
 	}
 	if _, err := store.GetProject(req.ProjectID); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
@@ -43,7 +48,8 @@ func (a *App) BuildImage(ctx context.Context, req *BuildImageRequest) (*docker.B
 	if buildErr != nil {
 		status = "failed"
 	}
-	if err := store.FinishBuildRecord(record.ID, status, res.Log); err != nil {
+	logsDir := filepath.Join(a.dataDir, "logs", "builds")
+	if err := store.FinishBuildRecord(record.ID, status, res.Log, logsDir); err != nil {
 		slog.Error("finish build record failed", "id", record.ID, "err", err)
 	}
 

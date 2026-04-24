@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"flowci/internal/docker"
+	"flowci/internal/validate"
 )
 
 // ListContainers 列出全部容器（含已停止的）。
@@ -46,9 +47,25 @@ func (a *App) GetContainerLogs(ctx context.Context, id string, tail int) (string
 }
 
 // DeployContainer 直接 docker run 启动容器（非 compose 路径）。
+// 所有用户输入过白名单校验（见 internal/validate），拒绝后不会触发 docker 调用。
 func (a *App) DeployContainer(ctx context.Context, req *DeployContainerRequest) (*docker.DeployResult, error) {
 	if req == nil || strings.TrimSpace(req.Image) == "" || strings.TrimSpace(req.Name) == "" {
 		return nil, fmt.Errorf("%w: image and name required", ErrBadRequest)
+	}
+	if err := validate.ImageRef(req.Image); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadRequest, err)
+	}
+	if err := validate.ContainerName(req.Name); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadRequest, err)
+	}
+	if err := validate.Port(req.HostPort); err != nil {
+		return nil, fmt.Errorf("%w: hostPort %v", ErrBadRequest, err)
+	}
+	if err := validate.Port(req.ContainerPort); err != nil {
+		return nil, fmt.Errorf("%w: containerPort %v", ErrBadRequest, err)
+	}
+	if err := validate.EnvMultiline(req.Env); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadRequest, err)
 	}
 	res, err := docker.Deploy(ctx, docker.DeployRequest{
 		Image:         req.Image,
