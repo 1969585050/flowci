@@ -3,7 +3,7 @@
     <div class="header">
       <h1>项目列表</h1>
       <div style="display: flex; gap: 12px;">
-        <button class="btn-outline" @click="openGiteaImport">🦊 从 Gitea 导入</button>
+        <button class="btn-outline" @click="goToRepositories">🌿 从仓库源导入</button>
         <button class="btn-primary" @click="showCreateDialog = true">+ 新建项目</button>
       </div>
     </div>
@@ -72,94 +72,6 @@
       </div>
     </div>
 
-    <!-- Gitea 导入弹窗 -->
-    <div v-if="giteaModal.open" class="modal-overlay" @click.self="closeGiteaImport">
-      <div class="modal modal-lg">
-        <h2>从 Gitea 导入仓库</h2>
-
-        <div v-if="giteaModal.loading" class="loading" style="padding: 40px 0;">
-          <div class="spinner"></div>
-          <span>正在拉取你的仓库列表…</span>
-        </div>
-
-        <div v-else-if="giteaModal.error" class="env-row fail" style="padding: 16px;">
-          <span class="dot"></span>
-          <span class="env-value">{{ giteaModal.error }}</span>
-        </div>
-
-        <template v-else>
-          <div class="repo-toolbar">
-            <input
-              v-model="giteaModal.search"
-              type="text"
-              class="repo-search"
-              placeholder="🔍 搜索仓库名 / owner..."
-            />
-            <button class="btn-link" @click="toggleAll">
-              {{ allSelected ? '取消全选' : `全选 (${filteredRepos.length})` }}
-            </button>
-            <span class="repo-count">已选 <strong>{{ giteaModal.selected.size }}</strong> / {{ giteaModal.repos.length }}</span>
-          </div>
-
-          <div class="repo-list">
-            <label
-              v-for="r in filteredRepos"
-              :key="r.fullName"
-              class="repo-item"
-              :class="{ selected: giteaModal.selected.has(r.fullName) }"
-            >
-              <input
-                type="checkbox"
-                :checked="giteaModal.selected.has(r.fullName)"
-                @change="toggleRepo(r.fullName)"
-              />
-              <div class="repo-meta">
-                <div class="repo-name">
-                  {{ r.fullName }}
-                  <span v-if="r.private" class="repo-tag private">私有</span>
-                  <span class="repo-tag branch">{{ r.defaultBranch }}</span>
-                </div>
-                <div v-if="r.description" class="repo-desc">{{ r.description }}</div>
-              </div>
-            </label>
-          </div>
-
-          <div v-if="giteaModal.importing" class="env-row" style="padding: 12px;">
-            <div class="spinner spinner-sm"></div>
-            <span>导入中… 已完成 {{ giteaModal.importedCount }} / {{ giteaModal.selected.size }}</span>
-          </div>
-
-          <div v-if="giteaModal.result" class="import-result">
-            <div class="env-row ok" v-if="giteaModal.result.imported.length">
-              <span class="dot"></span>
-              <span>成功导入 {{ giteaModal.result.imported.length }} 个：{{ giteaModal.result.imported.map(p => p.name).join(', ') }}</span>
-            </div>
-            <div v-if="giteaModal.result.errors?.length" class="env-row fail" style="margin-top: 6px;">
-              <span class="dot"></span>
-              <span>失败 {{ giteaModal.result.errors.length }} 个：</span>
-            </div>
-            <ul v-if="giteaModal.result.errors?.length" class="error-list">
-              <li v-for="e in giteaModal.result.errors" :key="e.fullName">
-                <strong>{{ e.fullName }}</strong>: {{ e.error }}
-              </li>
-            </ul>
-          </div>
-        </template>
-
-        <div class="modal-actions">
-          <button class="btn-cancel" @click="closeGiteaImport">关闭</button>
-          <button
-            v-if="!giteaModal.loading && !giteaModal.error"
-            class="btn-primary"
-            :disabled="giteaModal.importing || giteaModal.selected.size === 0"
-            @click="confirmImport"
-          >
-            {{ giteaModal.importing ? '导入中…' : `导入 ${giteaModal.selected.size} 个` }}
-          </button>
-        </div>
-      </div>
-    </div>
-
     <div v-if="showEditDialog" class="modal-overlay" @click.self="showEditDialog = false">
       <div class="modal">
         <h2>编辑项目</h2>
@@ -198,8 +110,7 @@
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ListProjects, CreateProject, DeleteProject, UpdateProject, ListGiteaRepos, ImportGiteaRepos } from '../wailsjs/go/handler/App'
-import { computed } from 'vue'
+import { ListProjects, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/handler/App'
 import { useConfirm } from '../composables/useConfirm'
 
 const { ask } = useConfirm()
@@ -222,107 +133,8 @@ const showEditDialog = ref(false)
 const newProject = ref({ name: '', path: '', language: 'nodejs' })
 const editForm = ref({ id: '', name: '', path: '', language: 'nodejs' })
 
-// ---- Gitea 导入 ----
-interface GiteaRepo {
-  fullName: string
-  cloneUrl: string
-  defaultBranch: string
-  description: string
-  private: boolean
-}
-interface ImportError { fullName: string; error: string }
-interface ImportResult {
-  imported: Project[]
-  errors: ImportError[]
-}
-const giteaModal = ref({
-  open: false,
-  loading: false,
-  importing: false,
-  importedCount: 0,
-  error: '',
-  search: '',
-  repos: [] as GiteaRepo[],
-  selected: new Set<string>(),
-  result: null as ImportResult | null,
-})
-
-const filteredRepos = computed(() => {
-  const q = giteaModal.value.search.trim().toLowerCase()
-  if (!q) return giteaModal.value.repos
-  return giteaModal.value.repos.filter(r => r.fullName.toLowerCase().includes(q))
-})
-const allSelected = computed(() => {
-  const list = filteredRepos.value
-  return list.length > 0 && list.every(r => giteaModal.value.selected.has(r.fullName))
-})
-
-async function openGiteaImport() {
-  giteaModal.value = {
-    open: true, loading: true, importing: false, importedCount: 0,
-    error: '', search: '', repos: [], selected: new Set(), result: null,
-  }
-  try {
-    giteaModal.value.repos = await ListGiteaRepos()
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    giteaModal.value.error = msg.includes('设置') ? msg : `拉取仓库失败: ${msg}`
-  }
-  giteaModal.value.loading = false
-}
-
-function closeGiteaImport() {
-  if (giteaModal.value.importing) return
-  giteaModal.value.open = false
-  if (giteaModal.value.result?.imported.length) {
-    void refreshProjects()
-  }
-}
-
-function toggleRepo(fullName: string) {
-  const s = new Set(giteaModal.value.selected)
-  if (s.has(fullName)) s.delete(fullName)
-  else s.add(fullName)
-  giteaModal.value.selected = s
-}
-
-function toggleAll() {
-  if (allSelected.value) {
-    const s = new Set(giteaModal.value.selected)
-    filteredRepos.value.forEach(r => s.delete(r.fullName))
-    giteaModal.value.selected = s
-  } else {
-    const s = new Set(giteaModal.value.selected)
-    filteredRepos.value.forEach(r => s.add(r.fullName))
-    giteaModal.value.selected = s
-  }
-}
-
-async function confirmImport() {
-  giteaModal.value.importing = true
-  giteaModal.value.importedCount = 0
-  giteaModal.value.result = null
-
-  const picked = giteaModal.value.repos.filter(r => giteaModal.value.selected.has(r.fullName))
-  const payload = picked.map(r => ({
-    fullName: r.fullName,
-    cloneUrl: r.cloneUrl,
-    branch: r.defaultBranch,
-  }))
-  try {
-    const result = await ImportGiteaRepos({ repos: payload })
-    giteaModal.value.result = result
-    giteaModal.value.importedCount = result.imported?.length ?? 0
-    if (result.errors?.length) {
-      toast?.error(`导入完成：成功 ${result.imported.length}，失败 ${result.errors.length}`)
-    } else {
-      toast?.success(`成功导入 ${result.imported.length} 个项目`)
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    toast?.error(`导入失败: ${msg}`)
-  }
-  giteaModal.value.importing = false
+function goToRepositories() {
+  router.push('/repositories')
 }
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }

@@ -101,68 +101,6 @@
     </div>
 
     <div class="card">
-      <h3>🦊 Gitea 集成</h3>
-      <p class="hint" style="margin-top: 0;">
-        配置 Gitea 实例 URL 和 Personal Access Token，
-        即可自动扫描你能访问的全部仓库并一键导入为 FlowCI 项目（自动 clone 到本地）。
-      </p>
-
-      <div class="form-group">
-        <label>Gitea 实例 URL</label>
-        <input
-          v-model="gitea.baseURL"
-          type="text"
-          placeholder="https://gitea.example.com 或 http://localhost:3000"
-        />
-      </div>
-
-      <div class="form-group">
-        <label>
-          Access Token
-          <span v-if="giteaStatus?.hasToken" class="ai-key-status">✓ 已配置</span>
-          <span v-else class="ai-key-status missing">未配置</span>
-        </label>
-        <input
-          v-model="gitea.tokenInput"
-          type="password"
-          :placeholder="giteaStatus?.hasToken ? '已保存（留空不修改；填新值覆盖）' : '从 Gitea 用户设置 → 应用 → 生成新令牌'"
-        />
-      </div>
-
-      <details class="gitea-help">
-        <summary>📘 如何生成 Token？</summary>
-        <ol>
-          <li>登录你的 Gitea 实例</li>
-          <li>右上角头像 → <strong>设置</strong> → 左侧 <strong>应用</strong> 标签</li>
-          <li>“管理访问令牌”区域 → 输入名称（如 <code>FlowCI</code>）→ 选择 scope <code>read:repository</code></li>
-          <li>点击 <strong>生成令牌</strong> → 复制显示的 token（只显示一次！）粘贴到上方输入框</li>
-          <li>保存配置 → 点 <strong>验证连接</strong> 看到用户名即成功</li>
-        </ol>
-        <a v-if="giteaStatus?.tokenSettingsUrl"
-           :href="giteaStatus.tokenSettingsUrl"
-           target="_blank" rel="noopener"
-           class="hint-link">
-          🔗 直接打开 Token 设置页 →
-        </a>
-      </details>
-
-      <div style="display: flex; gap: 12px; margin-top: 16px;">
-        <button class="btn-primary" @click="saveGitea" :disabled="savingGitea">
-          {{ savingGitea ? '保存中…' : '保存配置' }}
-        </button>
-        <button class="btn-outline" @click="verifyGitea" :disabled="verifying || !giteaStatus?.hasToken">
-          {{ verifying ? '验证中…' : '验证连接' }}
-        </button>
-      </div>
-
-      <div v-if="giteaUser" class="env-row ok" style="margin-top: 12px;">
-        <span class="dot"></span>
-        <span class="env-label">当前用户</span>
-        <span class="env-value">{{ giteaUser.username }} ({{ giteaUser.email || '无邮箱' }})</span>
-      </div>
-    </div>
-
-    <div class="card">
       <h3>主题设置</h3>
       <div class="theme-toggle">
         <button
@@ -258,7 +196,6 @@ import { ref, inject, onMounted } from 'vue'
 import {
   CheckDocker, GetSettings, SaveSettings, DetectDockerEnv,
   GetAIKeyStatus, SaveAIKey, DetectGitEnv,
-  SaveGiteaConfig, GetGiteaStatus, VerifyGitea,
 } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
@@ -345,65 +282,7 @@ async function copyHintCmd(cmd: string) {
   }
 }
 
-// ---- Gitea ----
-
-interface GiteaStatus {
-  baseUrl: string
-  hasToken: boolean
-  tokenSettingsUrl: string
-}
-interface GiteaUser {
-  username: string
-  email: string
-  avatarUrl: string
-}
-
-const gitea = ref({ baseURL: '', tokenInput: '' })
-const giteaStatus = ref<GiteaStatus | null>(null)
-const giteaUser = ref<GiteaUser | null>(null)
-const savingGitea = ref(false)
-const verifying = ref(false)
-
-async function loadGiteaStatus() {
-  try {
-    giteaStatus.value = await GetGiteaStatus()
-    if (giteaStatus.value) {
-      gitea.value.baseURL = giteaStatus.value.baseUrl
-    }
-  } catch (e) {
-    console.error('load gitea status failed:', e)
-  }
-}
-
-async function saveGitea() {
-  savingGitea.value = true
-  try {
-    await SaveGiteaConfig({
-      baseUrl: gitea.value.baseURL,
-      token: gitea.value.tokenInput,
-    })
-    gitea.value.tokenInput = ''
-    await loadGiteaStatus()
-    toast?.success('Gitea 配置已保存')
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    toast?.error(`保存失败: ${msg}`)
-  }
-  savingGitea.value = false
-}
-
-async function verifyGitea() {
-  verifying.value = true
-  giteaUser.value = null
-  try {
-    giteaUser.value = await VerifyGitea()
-    toast?.success(`验证成功：${giteaUser.value?.username}`)
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    toast?.error(`验证失败: ${msg}`)
-  }
-  verifying.value = false
-}
+// Gitea 集成已迁到独立菜单 "仓库源"（/repositories）
 
 async function refreshAIKeyStatus() {
   try {
@@ -506,7 +385,6 @@ onMounted(() => {
   checkDocker()
   loadSettings()
   checkGit()
-  loadGiteaStatus()
 })
 </script>
 

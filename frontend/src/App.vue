@@ -56,6 +56,7 @@ provide('toast', {
 
 const navItems = [
   { to: '/projects', icon: '📦', label: '项目' },
+  { to: '/repositories', icon: '🌿', label: '仓库源' },
   { to: '/build', icon: '🔨', label: '构建' },
   { to: '/pipelines', icon: '🔧', label: '流水线' },
   { to: '/deploy', icon: '🌐', label: '部署' },

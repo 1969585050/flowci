@@ -14,10 +14,12 @@ import BuildHistoryView from './views/BuildHistoryView.vue'
 import BuildDetailView from './views/BuildDetailView.vue'
 import ImagesView from './views/ImagesView.vue'
 import PipelineView from './views/PipelineView.vue'
+import RepositoriesView from './views/RepositoriesView.vue'
 
 const routes = [
   { path: '/', redirect: '/projects' },
   { path: '/projects', component: ProjectsView },
+  { path: '/repositories', component: RepositoriesView },
   { path: '/build', component: BuildView },
   { path: '/deploy', component: DeployView },
   { path: '/push', component: PushView },
