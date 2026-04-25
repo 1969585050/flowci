@@ -31,24 +31,52 @@ func TestGiteaTokenSettingsURL(t *testing.T) {
 
 func TestVerify_HappyPath(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/user" {
-			t.Errorf("path = %q", r.URL.Path)
-		}
 		if got := r.Header.Get("Authorization"); got != "token testtok" {
 			t.Errorf("auth = %q", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"login":"alice","email":"a@b","avatar_url":"https://x/a.png"}`))
+		switch r.URL.Path {
+		case "/api/v1/user/repos":
+			_, _ = w.Write([]byte(`[]`))
+		case "/api/v1/user":
+			_, _ = w.Write([]byte(`{"login":"alice","email":"a@b","avatar_url":"https://x/a.png"}`))
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	defer srv.Close()
 
-	g := NewGitea(srv.URL, "testtok")
-	user, err := g.Verify(context.Background())
+	user, err := NewGitea(srv.URL, "testtok").Verify(context.Background())
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
 	if user.Username != "alice" || user.Email != "a@b" {
 		t.Errorf("got %+v", user)
+	}
+}
+
+// 主验证 (read:repository) 通过、user 接口 403 (缺 read:user) → 仍算成功，username 留空。
+func TestVerify_NoUserScopeFallsThrough(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/user/repos":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[]`))
+		case "/api/v1/user":
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"message":"missing scope read:user"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	user, err := NewGitea(srv.URL, "tok").Verify(context.Background())
+	if err != nil {
+		t.Fatalf("Verify should not fail without read:user scope: %v", err)
+	}
+	if user.Username != "" {
+		t.Errorf("expected empty username, got %q", user.Username)
 	}
 }
 
@@ -67,6 +95,24 @@ func TestVerify_Unauthorized(t *testing.T) {
 	defer srv.Close()
 
 	_, err := NewGitea(srv.URL, "bad").Verify(context.Background())
+	if !errors.Is(err, ErrGiteaUnauthorized) {
+		t.Errorf("expected ErrGiteaUnauthorized, got %v", err)
+	}
+}
+
+// 主验证 (列仓库) 收到 403 应当算 ErrGiteaUnauthorized（缺 read:repository）。
+func TestVerify_NoRepoScope(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/user/repos" {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"message":"missing scope read:repository"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	_, err := NewGitea(srv.URL, "tok").Verify(context.Background())
 	if !errors.Is(err, ErrGiteaUnauthorized) {
 		t.Errorf("expected ErrGiteaUnauthorized, got %v", err)
 	}

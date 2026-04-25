@@ -50,28 +50,37 @@ func (g *GiteaClient) TokenSettingsURL() string {
 	return g.baseURL + "/user/settings/applications"
 }
 
-// Verify ping /api/v1/user 验证 token 是否有效，返回当前用户信息。
+// Verify 验证 token 有效性 + 权限是否足够列仓库。
+//
+// 主验证用 /api/v1/user/repos?limit=1（必需 read:repository scope，
+// 跟 ListRepos 实际依赖一致；403 = scope 不够，401 = token 失效）。
+// 拿用户信息走 /api/v1/user（需 read:user），失败时 username 留空但不报错——
+// 用户即使没勾 read:user 也能正常使用 FlowCI 的导入功能。
 func (g *GiteaClient) Verify(ctx context.Context) (*UserInfo, error) {
 	if !g.Configured() {
 		return nil, ErrGiteaNotConfigured
 	}
-	body, err := g.get(ctx, "/api/v1/user")
-	if err != nil {
+
+	// 主验证：列出 1 条仓库（验证 read:repository）
+	if _, err := g.get(ctx, "/api/v1/user/repos?limit=1"); err != nil {
 		return nil, err
 	}
-	var raw struct {
-		Login     string `json:"login"`
-		Email     string `json:"email"`
-		AvatarURL string `json:"avatar_url"`
+
+	// best-effort：拿当前用户名（缺 read:user 时静默跳过）
+	user := &UserInfo{}
+	if body, err := g.get(ctx, "/api/v1/user"); err == nil {
+		var raw struct {
+			Login     string `json:"login"`
+			Email     string `json:"email"`
+			AvatarURL string `json:"avatar_url"`
+		}
+		if jerr := json.Unmarshal(body, &raw); jerr == nil {
+			user.Username = raw.Login
+			user.Email = raw.Email
+			user.AvatarURL = raw.AvatarURL
+		}
 	}
-	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, fmt.Errorf("parse user response: %w", err)
-	}
-	return &UserInfo{
-		Username:  raw.Login,
-		Email:     raw.Email,
-		AvatarURL: raw.AvatarURL,
-	}, nil
+	return user, nil
 }
 
 // ListRepos 拉取当前 token 用户能访问的所有仓库（含个人 + 组织 + 协作）。
@@ -158,8 +167,10 @@ func (g *GiteaClient) get(ctx context.Context, path string) ([]byte, error) {
 	switch resp.StatusCode {
 	case http.StatusOK:
 		return body, nil
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, fmt.Errorf("%w: HTTP %d", ErrGiteaUnauthorized, resp.StatusCode)
+	case http.StatusUnauthorized:
+		return nil, fmt.Errorf("%w: HTTP %d (token 失效或被撤销)", ErrGiteaUnauthorized, resp.StatusCode)
+	case http.StatusForbidden:
+		return nil, fmt.Errorf("%w: HTTP %d (token scope 不够；至少需要 read:repository)", ErrGiteaUnauthorized, resp.StatusCode)
 	default:
 		return nil, fmt.Errorf("gitea HTTP %d: %s", resp.StatusCode, truncate(string(body), 300))
 	}

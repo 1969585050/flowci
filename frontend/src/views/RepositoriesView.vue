@@ -56,15 +56,26 @@
             />
           </div>
 
-          <details class="gitea-help">
+          <details class="gitea-help" open>
             <summary>📘 如何生成 Token？</summary>
             <ol>
               <li>登录你的 Gitea 实例</li>
               <li>右上角头像 → <strong>设置</strong> → 左侧 <strong>应用</strong> 标签</li>
-              <li>“管理访问令牌”区域 → 输入名称（如 <code>FlowCI</code>）→ 选 scope <code>read:repository</code></li>
+              <li>"管理访问令牌"区域 → 输入名称（如 <code>FlowCI</code>）</li>
+              <li>
+                <strong>勾选权限 scope</strong>（Gitea 1.20+ 必填）：
+                <ul style="margin-top: 4px;">
+                  <li><code>repository</code> → <strong>Read</strong>（必选，列仓库 + clone）</li>
+                  <li><code>user</code> → <strong>Read</strong>（可选，FlowCI 显示你的用户名）</li>
+                </ul>
+              </li>
               <li><strong>生成令牌</strong> → 复制显示的 token（只显示一次！）粘贴到上方</li>
-              <li>保存 → 验证连接看到用户名即成功</li>
+              <li>保存 → 验证连接</li>
             </ol>
+            <p style="margin: 6px 0 0 0; color: var(--warning-fg);">
+              ⚠ 旧 token 没勾 <code>repository</code> 或 <code>user</code> 时验证会报 HTTP 403；
+              重新生成 token 即可。
+            </p>
             <a v-if="giteaStatus?.tokenSettingsUrl" :href="giteaStatus.tokenSettingsUrl" target="_blank" rel="noopener" class="hint-link">
               🔗 直接打开 Token 设置页 →
             </a>
