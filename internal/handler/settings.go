@@ -29,6 +29,16 @@ func (a *App) SaveSettings(req *SaveSettingsRequest) error {
 	return nil
 }
 
+// DetectDockerEnv 一次性探测目标 Docker 环境（version/buildx/compose）。
+// req.Host 为空时用当前已生效的 DOCKER_HOST（可在保存前用输入框的值试探）。
+func (a *App) DetectDockerEnv(req *DetectDockerEnvRequest) docker.EnvReport {
+	host := ""
+	if req != nil {
+		host = req.Host
+	}
+	return docker.DetectEnv(a.ctx, host)
+}
+
 // GetSupportedLanguages 返回前端 Dockerfile 生成器支持的语言列表。
 func (a *App) GetSupportedLanguages() []Language {
 	return []Language{

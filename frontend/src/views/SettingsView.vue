@@ -27,7 +27,37 @@
 
       <div style="display: flex; gap: 12px; margin-top: 16px;">
         <button class="btn-outline" @click="checkDocker">检查连接</button>
+        <button class="btn-outline" @click="detectEnv" :disabled="detecting">
+          {{ detecting ? '检测中…' : '🔍 检测环境' }}
+        </button>
         <button class="btn-primary" @click="saveSettings">保存</button>
+      </div>
+
+      <div v-if="envReport" class="env-report">
+        <div class="env-row" :class="envReport.connected ? 'ok' : 'fail'">
+          <span class="dot"></span>
+          <span class="env-label">Docker daemon</span>
+          <span class="env-value">
+            {{ envReport.connected
+              ? `已连接 · server ${envReport.serverVersion} (${envReport.serverOS}/${envReport.serverArch})`
+              : envReport.message || '不可达' }}
+          </span>
+        </div>
+        <div v-if="envReport.clientVersion" class="env-row ok">
+          <span class="dot"></span>
+          <span class="env-label">Docker CLI</span>
+          <span class="env-value">v{{ envReport.clientVersion }}</span>
+        </div>
+        <div class="env-row" :class="envReport.hasBuildx ? 'ok' : 'warn'">
+          <span class="dot"></span>
+          <span class="env-label">buildx 插件</span>
+          <span class="env-value">{{ envReport.hasBuildx ? '可用' : '不可用（构建镜像将失败）' }}</span>
+        </div>
+        <div class="env-row" :class="envReport.hasCompose ? 'ok' : 'warn'">
+          <span class="dot"></span>
+          <span class="env-label">compose 插件</span>
+          <span class="env-value">{{ envReport.hasCompose ? '可用' : '不可用（不能用 compose 部署）' }}</span>
+        </div>
       </div>
     </div>
 
@@ -84,7 +114,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { CheckDocker, GetSettings, SaveSettings } from '../wailsjs/go/handler/App'
+import { CheckDocker, GetSettings, SaveSettings, DetectDockerEnv } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 const themeContext = inject('theme') as { current: { value: string }; setTheme: (theme: string) => void }
@@ -94,6 +124,35 @@ const dockerStatus = ref({
   text: '检查中...',
   version: ''
 })
+
+const detecting = ref(false)
+const envReport = ref<{
+  host: string
+  connected: boolean
+  clientVersion: string
+  serverVersion: string
+  serverOS: string
+  serverArch: string
+  hasBuildx: boolean
+  hasCompose: boolean
+  message: string
+} | null>(null)
+
+async function detectEnv() {
+  detecting.value = true
+  try {
+    envReport.value = await DetectDockerEnv({ host: settings.value.dockerHost })
+    if (envReport.value?.connected) {
+      toast?.success('环境检测完成')
+    } else {
+      toast?.warning?.(envReport.value?.message || '环境检测发现问题')
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`检测失败: ${msg}`)
+  }
+  detecting.value = false
+}
 
 const settings = ref({
   defaultRegistry: 'docker.io',
@@ -334,5 +393,49 @@ h1 {
 .about-info p {
   color: var(--text-secondary, #666);
   margin-bottom: 8px;
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  line-height: 1.5;
+}
+
+.env-report {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--bg-primary, #f5f7fa);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+
+.env-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.env-row .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.env-row.ok   .dot { background: var(--success-fg, #16a34a); }
+.env-row.warn .dot { background: var(--warning-fg, #d97706); }
+.env-row.fail .dot { background: var(--danger-fg,  #dc2626); }
+
+.env-row .env-label {
+  width: 110px;
+  color: var(--text-secondary, #666);
+}
+
+.env-row .env-value {
+  color: var(--text-primary, #1a1a2e);
+  flex: 1;
 }
 </style>

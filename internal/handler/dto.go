@@ -114,6 +114,12 @@ type SaveSettingsRequest struct {
 	Settings map[string]string `json:"settings"`
 }
 
+// DetectDockerEnvRequest 触发一次 Docker 环境探测。
+// Host 为空时探测当前 settings 配置的 host（或本地）；非空时一次性覆盖。
+type DetectDockerEnvRequest struct {
+	Host string `json:"host"`
+}
+
 // Language 表示"支持的构建语言"选项，用于前端下拉。
 type Language struct {
 	Language    string `json:"language"`
