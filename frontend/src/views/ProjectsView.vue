@@ -8,9 +8,16 @@
       </div>
     </div>
 
-    <div v-if="loading" class="loading">
-      <div class="spinner"></div>
-      <span>加载中...</span>
+    <div v-if="loading && stats.length === 0" class="project-grid">
+      <div v-for="i in 4" :key="i" class="project-card skeleton-card">
+        <div class="skel-row" style="width: 60%; height: 18px;"></div>
+        <div class="skel-row" style="width: 40%; height: 12px; margin-top: 8px;"></div>
+        <div class="skel-row" style="width: 100%; height: 36px; margin-top: 14px; border-radius: 6px;"></div>
+        <div style="display: flex; gap: 6px; margin-top: 14px;">
+          <div class="skel-row" style="width: 70px; height: 24px;"></div>
+          <div class="skel-row" style="width: 70px; height: 24px;"></div>
+        </div>
+      </div>
     </div>
 
     <div v-else-if="projects.length === 0" class="empty-state">
@@ -1000,4 +1007,20 @@ onMounted(() => {
 .env-row.fail .dot { background: #dc2626; }
 .env-row.warn .dot { background: #d97706; }
 .env-value { flex: 1; word-break: break-word; }
+
+/* skeleton 占位 */
+.skeleton-card { pointer-events: none; }
+.skel-row {
+  background: linear-gradient(90deg,
+    var(--bg-primary) 0%,
+    var(--border-color) 50%,
+    var(--bg-primary) 100%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
 </style>
