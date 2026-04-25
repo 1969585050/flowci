@@ -102,6 +102,46 @@
     </div>
 
     <div class="card">
+      <h3>🤖 AI 助手</h3>
+      <p class="hint" style="margin-bottom: 16px; margin-top: 0;">
+        配置 OpenAI 兼容的 LLM API（OpenAI / DeepSeek / 月之暗面 / 本地 ollama 等），
+        构建失败时可一键 AI 诊断日志。API key 存 OS keyring，不入数据库。
+      </p>
+
+      <div class="form-group">
+        <label>Base URL</label>
+        <input
+          v-model="settings.aiBaseURL"
+          type="text"
+          placeholder="https://api.openai.com 或 http://localhost:11434"
+        />
+      </div>
+      <div class="form-group">
+        <label>Model</label>
+        <input
+          v-model="settings.aiModel"
+          type="text"
+          placeholder="gpt-4o-mini / deepseek-chat / qwen2.5:7b 等"
+        />
+      </div>
+      <div class="form-group">
+        <label>API Key
+          <span v-if="aiKeyConfigured" class="ai-key-status">✓ 已配置</span>
+          <span v-else class="ai-key-status missing">未配置</span>
+        </label>
+        <input
+          v-model="aiKeyInput"
+          type="password"
+          :placeholder="aiKeyConfigured ? '已保存（留空不修改；填新值覆盖；填空格清除）' : 'sk-...'"
+        />
+      </div>
+
+      <div style="display: flex; gap: 12px;">
+        <button class="btn-primary" @click="saveAISettings">保存 AI 配置</button>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>关于</h3>
       <div class="about-info">
         <p><strong>FlowCI</strong> - 轻量级 Docker 构建部署工具</p>
@@ -114,7 +154,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { CheckDocker, GetSettings, SaveSettings, DetectDockerEnv } from '../wailsjs/go/handler/App'
+import { CheckDocker, GetSettings, SaveSettings, DetectDockerEnv, GetAIKeyStatus, SaveAIKey } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 const themeContext = inject('theme') as { current: { value: string }; setTheme: (theme: string) => void }
@@ -159,7 +199,43 @@ const settings = ref({
   defaultWorkdir: '/workspace',
   theme: 'system',
   dockerHost: '',
+  aiBaseURL: '',
+  aiModel: '',
 })
+
+const aiKeyInput = ref('')
+const aiKeyConfigured = ref(false)
+
+async function refreshAIKeyStatus() {
+  try {
+    const s = await GetAIKeyStatus()
+    aiKeyConfigured.value = !!s?.configured
+  } catch {
+    aiKeyConfigured.value = false
+  }
+}
+
+async function saveAISettings() {
+  try {
+    await SaveSettings({
+      settings: {
+        aiBaseURL: settings.value.aiBaseURL,
+        aiModel: settings.value.aiModel,
+      },
+    })
+    // API key 单独走 keyring；空字符串保留旧值（不改），全空格视为清除
+    if (aiKeyInput.value !== '') {
+      const trimmed = aiKeyInput.value.trim()
+      await SaveAIKey({ apiKey: trimmed })
+      aiKeyInput.value = ''
+      await refreshAIKeyStatus()
+    }
+    toast?.success('AI 配置已保存')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`保存失败: ${msg}`)
+  }
+}
 
 async function loadSettings() {
   try {
@@ -167,6 +243,8 @@ async function loadSettings() {
     if (result.defaultRegistry) settings.value.defaultRegistry = result.defaultRegistry
     if (result.defaultWorkdir) settings.value.defaultWorkdir = result.defaultWorkdir
     if (result.dockerHost) settings.value.dockerHost = result.dockerHost
+    if (result.aiBaseURL) settings.value.aiBaseURL = result.aiBaseURL
+    if (result.aiModel) settings.value.aiModel = result.aiModel
     if (result.theme) {
       settings.value.theme = result.theme
       themeContext?.setTheme(result.theme)
@@ -174,6 +252,7 @@ async function loadSettings() {
   } catch (e) {
     console.error('Failed to load settings:', e)
   }
+  await refreshAIKeyStatus()
 }
 
 function setTheme(theme: string) {
@@ -437,5 +516,15 @@ h1 {
 .env-row .env-value {
   color: var(--text-primary, #1a1a2e);
   flex: 1;
+}
+
+.ai-key-status {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--success-fg, #16a34a);
+}
+.ai-key-status.missing {
+  color: var(--text-muted, #94a3b8);
 }
 </style>

@@ -41,7 +41,27 @@
       </div>
 
       <div class="log-section">
-        <h3>构建日志</h3>
+        <div class="log-header">
+          <h3>构建日志</h3>
+          <button
+            v-if="record.log"
+            class="btn-ai"
+            :disabled="diagnosing"
+            @click="diagnose"
+          >
+            {{ diagnosing ? '诊断中…' : '🤖 AI 诊断' }}
+          </button>
+        </div>
+
+        <div v-if="diagnosis" class="diagnosis">
+          <div class="diagnosis-header">
+            <span class="diagnosis-tag">AI 诊断</span>
+            <span v-if="diagnosis.model" class="diagnosis-model">{{ diagnosis.model }}</span>
+            <button class="btn-link" @click="diagnosis = null">收起</button>
+          </div>
+          <pre class="diagnosis-body">{{ diagnosis.markdown }}</pre>
+        </div>
+
         <div class="log-container">
           <pre>{{ record.log || '(无日志输出)' }}</pre>
         </div>
@@ -56,9 +76,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { GetBuildRecord } from '../wailsjs/go/handler/App'
+import { GetBuildRecord, DiagnoseBuild } from '../wailsjs/go/handler/App'
+
+const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void } | undefined
 
 interface BuildRecord {
   id: string
@@ -75,6 +97,23 @@ const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const record = ref<BuildRecord | null>(null)
+
+const diagnosing = ref(false)
+const diagnosis = ref<{ markdown: string; model: string } | null>(null)
+
+async function diagnose() {
+  if (!record.value?.id) return
+  diagnosing.value = true
+  diagnosis.value = null
+  try {
+    const result = await DiagnoseBuild({ buildId: record.value.id })
+    diagnosis.value = result
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`AI 诊断失败: ${msg}`)
+  }
+  diagnosing.value = false
+}
 
 function statusText(status: string) {
   const map: Record<string, string> = {
@@ -251,7 +290,79 @@ onMounted(() => {
 .log-section h3 {
   font-size: 16px;
   color: var(--text-primary, #1a1a2e);
-  margin: 0 0 12px 0;
+  margin: 0;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.btn-ai {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+.btn-ai:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+.btn-ai:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.diagnosis {
+  margin-bottom: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.04));
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  border-radius: 8px;
+}
+.diagnosis-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.diagnosis-tag {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 12px;
+}
+.diagnosis-model {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  font-family: 'JetBrains Mono', monospace;
+}
+.btn-link {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #666);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.diagnosis-body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary, #1a1a2e);
+  font-size: 13px;
+  line-height: 1.6;
+  font-family: -apple-system, 'Segoe UI', sans-serif;
 }
 
 .log-container {

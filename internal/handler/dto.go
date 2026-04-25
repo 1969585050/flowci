@@ -120,6 +120,34 @@ type DetectDockerEnvRequest struct {
 	Host string `json:"host"`
 }
 
+// DiagnoseBuildRequest 触发 AI 诊断指定构建记录的失败原因。
+type DiagnoseBuildRequest struct {
+	BuildID string `json:"buildId"`
+}
+
+// DiagnoseBuildResponse AI 返回 Markdown 格式的诊断报告。
+type DiagnoseBuildResponse struct {
+	Markdown string `json:"markdown"`
+	Model    string `json:"model"`
+}
+
+// AIConfig 在 settings 中持久化的 AI 提供方配置。
+// APIKey 永远不通过 Settings DTO 来回传，单独 SaveAIKey/GetAIKeyStatus 走 keyring。
+type AIConfig struct {
+	BaseURL string `json:"baseUrl"`
+	Model   string `json:"model"`
+}
+
+// SaveAIKeyRequest 把 AI API key 写入 OS keyring。
+type SaveAIKeyRequest struct {
+	APIKey string `json:"apiKey" mask:"true"`
+}
+
+// AIKeyStatus 当前 keyring 是否已配置 AI API key（只暴露布尔，不回传 key 本身）。
+type AIKeyStatus struct {
+	Configured bool `json:"configured"`
+}
+
 // Language 表示"支持的构建语言"选项，用于前端下拉。
 type Language struct {
 	Language    string `json:"language"`
