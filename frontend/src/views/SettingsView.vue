@@ -62,6 +62,45 @@
     </div>
 
     <div class="card">
+      <h3>Git 环境</h3>
+      <div v-if="gitReport === null" class="env-row" style="padding: 0;">
+        <span class="env-label">检测中…</span>
+      </div>
+      <template v-else>
+        <div class="env-row" :class="gitReport.installed ? 'ok' : 'fail'">
+          <span class="dot"></span>
+          <span class="env-label">git CLI</span>
+          <span class="env-value">
+            {{ gitReport.installed ? gitReport.version : (gitReport.message || '未安装') }}
+          </span>
+        </div>
+        <div v-if="gitReport.path" class="env-row ok">
+          <span class="dot"></span>
+          <span class="env-label">安装位置</span>
+          <span class="env-value mono">{{ gitReport.path }}</span>
+        </div>
+
+        <div v-if="!gitReport.installed && gitReport.installHints?.length" class="install-hints">
+          <p class="install-title">推荐安装方式：</p>
+          <div v-for="(hint, idx) in gitReport.installHints" :key="idx" class="hint-row">
+            <div class="hint-label">{{ hint.label }}</div>
+            <div v-if="hint.command" class="hint-cmd">
+              <code>{{ hint.command }}</code>
+              <button class="btn-copy" @click="copyHintCmd(hint.command)">复制</button>
+            </div>
+            <a v-if="hint.url" :href="hint.url" target="_blank" rel="noopener" class="hint-link">
+              {{ hint.command ? '官方文档 →' : '打开下载页 →' }}
+            </a>
+          </div>
+        </div>
+      </template>
+
+      <button class="btn-outline" style="margin-top: 16px;" @click="checkGit">
+        重新检测
+      </button>
+    </div>
+
+    <div class="card">
       <h3>主题设置</h3>
       <div class="theme-toggle">
         <button
@@ -154,7 +193,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
-import { CheckDocker, GetSettings, SaveSettings, DetectDockerEnv, GetAIKeyStatus, SaveAIKey } from '../wailsjs/go/handler/App'
+import { CheckDocker, GetSettings, SaveSettings, DetectDockerEnv, GetAIKeyStatus, SaveAIKey, DetectGitEnv } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 const themeContext = inject('theme') as { current: { value: string }; setTheme: (theme: string) => void }
@@ -205,6 +244,40 @@ const settings = ref({
 
 const aiKeyInput = ref('')
 const aiKeyConfigured = ref(false)
+
+interface GitInstallHint {
+  method: string
+  label: string
+  command: string
+  url: string
+}
+interface GitReport {
+  installed: boolean
+  version: string
+  path: string
+  message: string
+  installHints: GitInstallHint[]
+}
+const gitReport = ref<GitReport | null>(null)
+
+async function checkGit() {
+  gitReport.value = null
+  try {
+    gitReport.value = await DetectGitEnv()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`Git 检测失败: ${msg}`)
+  }
+}
+
+async function copyHintCmd(cmd: string) {
+  try {
+    await navigator.clipboard.writeText(cmd)
+    toast?.success('命令已复制到剪贴板')
+  } catch {
+    toast?.error('复制失败')
+  }
+}
 
 async function refreshAIKeyStatus() {
   try {
@@ -306,6 +379,7 @@ async function saveSettings() {
 onMounted(() => {
   checkDocker()
   loadSettings()
+  checkGit()
 })
 </script>
 
@@ -526,5 +600,82 @@ h1 {
 }
 .ai-key-status.missing {
   color: var(--text-muted, #94a3b8);
+}
+
+.env-value.mono {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  word-break: break-all;
+}
+
+.install-hints {
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--warning-bg, #fffbeb);
+  border-left: 3px solid var(--warning-fg, #d97706);
+  border-radius: 6px;
+}
+
+.install-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning-fg, #92400e);
+  margin: 0 0 10px 0;
+}
+
+.hint-row {
+  margin-bottom: 10px;
+}
+.hint-row:last-child {
+  margin-bottom: 0;
+}
+
+.hint-label {
+  font-size: 12px;
+  color: var(--text-primary, #1a1a2e);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.hint-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary, #fff);
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e0e0e0);
+}
+.hint-cmd code {
+  flex: 1;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-primary, #1a1a2e);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+.btn-copy {
+  background: transparent;
+  border: 1px solid var(--brand-start, #667eea);
+  color: var(--brand-start, #667eea);
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.btn-copy:hover {
+  background: var(--brand-soft, rgba(102, 126, 234, 0.12));
+}
+
+.hint-link {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--brand-start, #667eea);
+  text-decoration: none;
+}
+.hint-link:hover {
+  text-decoration: underline;
 }
 </style>

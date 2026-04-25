@@ -15,13 +15,20 @@ import (
 var DB *sql.DB
 
 // Project 项目实体（对应 projects 表）。
+//
+// Path 含义因模式而异：
+//   - RepoURL 为空：用户指定的本地路径
+//   - RepoURL 非空：FlowCI 自动 clone 到的本地目录（通常 <dataDir>/repos/<id>）
 type Project struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Path      string    `json:"path"`
-	Language  string    `json:"language"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Path       string     `json:"path"`
+	Language   string     `json:"language"`
+	RepoURL    string     `json:"repoUrl"`
+	RepoBranch string     `json:"repoBranch"`
+	LastPullAt *time.Time `json:"lastPullAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	UpdatedAt  time.Time  `json:"updatedAt"`
 }
 
 // BuildRecord 在 builds.go 中定义（保留 CRUD 与类型定义同文件）。
