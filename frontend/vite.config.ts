@@ -12,7 +12,8 @@ export default defineConfig({
   root: '.',
   base: './',
   build: {
-    outDir: '../dist',
+    // 与 main.go 的 //go:embed all:frontend/dist 对齐（输出到 frontend/dist/）
+    outDir: 'dist',
     emptyOutDir: true,
   },
   server: {

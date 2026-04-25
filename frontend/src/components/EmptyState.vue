@@ -8,13 +8,14 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   icon?: string
   title: string
   description?: string
-}>()
-
-withDefaults(defineProps<{ icon?: string }>(), { icon: '📦' })
+}>(), {
+  icon: '📦',
+  description: undefined,
+})
 </script>
 
 <style scoped>
