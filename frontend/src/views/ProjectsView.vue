@@ -156,7 +156,7 @@ function formatDate(date: string) {
 async function refreshProjects() {
   loading.value = true
   try {
-    projects.value = await ListProjects(null)
+    projects.value = await ListProjects()
   } catch (e) {
     console.error('Failed to load projects:', e)
     toast?.error('加载项目列表失败')
