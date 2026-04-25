@@ -153,3 +153,46 @@ type Language struct {
 	Language    string `json:"language"`
 	DisplayName string `json:"displayName"`
 }
+
+// ---- Gitea 集成 ----
+
+// SaveGiteaConfigRequest 保存 Gitea 实例 URL 与 token。
+// Token 永不出现在响应中（GetGiteaStatus 只回传 hasToken）。
+// Token 字段语义：空字符串 = 不修改；全空格 = 删除；其它 = 写 keyring。
+type SaveGiteaConfigRequest struct {
+	BaseURL string `json:"baseUrl"`
+	Token   string `json:"token" mask:"true"`
+}
+
+// GiteaStatusResponse 当前 Gitea 配置概况，前端用以决定 UI 状态。
+type GiteaStatusResponse struct {
+	BaseURL          string `json:"baseUrl"`
+	HasToken         bool   `json:"hasToken"`
+	TokenSettingsURL string `json:"tokenSettingsUrl"` // <baseURL>/user/settings/applications
+}
+
+// ImportGiteaRepo 单个待导入仓库的描述（来自前端勾选）。
+type ImportGiteaRepo struct {
+	FullName string `json:"fullName"`           // owner/repo（仅日志/错误显示）
+	CloneURL string `json:"cloneUrl"`           // 来自 ListGiteaRepos
+	Branch   string `json:"branch,omitempty"`   // 默认分支
+	Name     string `json:"name,omitempty"`     // 可选：FlowCI project 名（默认取 repo 名）
+	Language string `json:"language,omitempty"` // 可选：选择的语言模板
+}
+
+// ImportGiteaReposRequest 批量导入选中的仓库。
+type ImportGiteaReposRequest struct {
+	Repos []ImportGiteaRepo `json:"repos"`
+}
+
+// ImportError 单个仓库导入失败描述。
+type ImportError struct {
+	FullName string `json:"fullName"`
+	Error    string `json:"error"`
+}
+
+// ImportGiteaReposResponse 批量导入汇总：成功的项目 + 失败的明细。
+type ImportGiteaReposResponse struct {
+	Imported []*store.Project `json:"imported"`
+	Errors   []ImportError    `json:"errors"`
+}

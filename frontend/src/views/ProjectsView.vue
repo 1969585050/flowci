@@ -2,7 +2,10 @@
   <div class="projects-view">
     <div class="header">
       <h1>项目列表</h1>
-      <button class="btn-primary" @click="showCreateDialog = true">+ 新建项目</button>
+      <div style="display: flex; gap: 12px;">
+        <button class="btn-outline" @click="openGiteaImport">🦊 从 Gitea 导入</button>
+        <button class="btn-primary" @click="showCreateDialog = true">+ 新建项目</button>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">
@@ -69,6 +72,94 @@
       </div>
     </div>
 
+    <!-- Gitea 导入弹窗 -->
+    <div v-if="giteaModal.open" class="modal-overlay" @click.self="closeGiteaImport">
+      <div class="modal modal-lg">
+        <h2>从 Gitea 导入仓库</h2>
+
+        <div v-if="giteaModal.loading" class="loading" style="padding: 40px 0;">
+          <div class="spinner"></div>
+          <span>正在拉取你的仓库列表…</span>
+        </div>
+
+        <div v-else-if="giteaModal.error" class="env-row fail" style="padding: 16px;">
+          <span class="dot"></span>
+          <span class="env-value">{{ giteaModal.error }}</span>
+        </div>
+
+        <template v-else>
+          <div class="repo-toolbar">
+            <input
+              v-model="giteaModal.search"
+              type="text"
+              class="repo-search"
+              placeholder="🔍 搜索仓库名 / owner..."
+            />
+            <button class="btn-link" @click="toggleAll">
+              {{ allSelected ? '取消全选' : `全选 (${filteredRepos.length})` }}
+            </button>
+            <span class="repo-count">已选 <strong>{{ giteaModal.selected.size }}</strong> / {{ giteaModal.repos.length }}</span>
+          </div>
+
+          <div class="repo-list">
+            <label
+              v-for="r in filteredRepos"
+              :key="r.fullName"
+              class="repo-item"
+              :class="{ selected: giteaModal.selected.has(r.fullName) }"
+            >
+              <input
+                type="checkbox"
+                :checked="giteaModal.selected.has(r.fullName)"
+                @change="toggleRepo(r.fullName)"
+              />
+              <div class="repo-meta">
+                <div class="repo-name">
+                  {{ r.fullName }}
+                  <span v-if="r.private" class="repo-tag private">私有</span>
+                  <span class="repo-tag branch">{{ r.defaultBranch }}</span>
+                </div>
+                <div v-if="r.description" class="repo-desc">{{ r.description }}</div>
+              </div>
+            </label>
+          </div>
+
+          <div v-if="giteaModal.importing" class="env-row" style="padding: 12px;">
+            <div class="spinner spinner-sm"></div>
+            <span>导入中… 已完成 {{ giteaModal.importedCount }} / {{ giteaModal.selected.size }}</span>
+          </div>
+
+          <div v-if="giteaModal.result" class="import-result">
+            <div class="env-row ok" v-if="giteaModal.result.imported.length">
+              <span class="dot"></span>
+              <span>成功导入 {{ giteaModal.result.imported.length }} 个：{{ giteaModal.result.imported.map(p => p.name).join(', ') }}</span>
+            </div>
+            <div v-if="giteaModal.result.errors?.length" class="env-row fail" style="margin-top: 6px;">
+              <span class="dot"></span>
+              <span>失败 {{ giteaModal.result.errors.length }} 个：</span>
+            </div>
+            <ul v-if="giteaModal.result.errors?.length" class="error-list">
+              <li v-for="e in giteaModal.result.errors" :key="e.fullName">
+                <strong>{{ e.fullName }}</strong>: {{ e.error }}
+              </li>
+            </ul>
+          </div>
+        </template>
+
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="closeGiteaImport">关闭</button>
+          <button
+            v-if="!giteaModal.loading && !giteaModal.error"
+            class="btn-primary"
+            :disabled="giteaModal.importing || giteaModal.selected.size === 0"
+            @click="confirmImport"
+          >
+            {{ giteaModal.importing ? '导入中…' : `导入 ${giteaModal.selected.size} 个` }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showEditDialog" class="modal-overlay" @click.self="showEditDialog = false">
       <div class="modal">
         <h2>编辑项目</h2>
@@ -107,7 +198,8 @@
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ListProjects, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/handler/App'
+import { ListProjects, CreateProject, DeleteProject, UpdateProject, ListGiteaRepos, ImportGiteaRepos } from '../wailsjs/go/handler/App'
+import { computed } from 'vue'
 import { useConfirm } from '../composables/useConfirm'
 
 const { ask } = useConfirm()
@@ -129,6 +221,109 @@ const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const newProject = ref({ name: '', path: '', language: 'nodejs' })
 const editForm = ref({ id: '', name: '', path: '', language: 'nodejs' })
+
+// ---- Gitea 导入 ----
+interface GiteaRepo {
+  fullName: string
+  cloneUrl: string
+  defaultBranch: string
+  description: string
+  private: boolean
+}
+interface ImportError { fullName: string; error: string }
+interface ImportResult {
+  imported: Project[]
+  errors: ImportError[]
+}
+const giteaModal = ref({
+  open: false,
+  loading: false,
+  importing: false,
+  importedCount: 0,
+  error: '',
+  search: '',
+  repos: [] as GiteaRepo[],
+  selected: new Set<string>(),
+  result: null as ImportResult | null,
+})
+
+const filteredRepos = computed(() => {
+  const q = giteaModal.value.search.trim().toLowerCase()
+  if (!q) return giteaModal.value.repos
+  return giteaModal.value.repos.filter(r => r.fullName.toLowerCase().includes(q))
+})
+const allSelected = computed(() => {
+  const list = filteredRepos.value
+  return list.length > 0 && list.every(r => giteaModal.value.selected.has(r.fullName))
+})
+
+async function openGiteaImport() {
+  giteaModal.value = {
+    open: true, loading: true, importing: false, importedCount: 0,
+    error: '', search: '', repos: [], selected: new Set(), result: null,
+  }
+  try {
+    giteaModal.value.repos = await ListGiteaRepos()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    giteaModal.value.error = msg.includes('设置') ? msg : `拉取仓库失败: ${msg}`
+  }
+  giteaModal.value.loading = false
+}
+
+function closeGiteaImport() {
+  if (giteaModal.value.importing) return
+  giteaModal.value.open = false
+  if (giteaModal.value.result?.imported.length) {
+    void refreshProjects()
+  }
+}
+
+function toggleRepo(fullName: string) {
+  const s = new Set(giteaModal.value.selected)
+  if (s.has(fullName)) s.delete(fullName)
+  else s.add(fullName)
+  giteaModal.value.selected = s
+}
+
+function toggleAll() {
+  if (allSelected.value) {
+    const s = new Set(giteaModal.value.selected)
+    filteredRepos.value.forEach(r => s.delete(r.fullName))
+    giteaModal.value.selected = s
+  } else {
+    const s = new Set(giteaModal.value.selected)
+    filteredRepos.value.forEach(r => s.add(r.fullName))
+    giteaModal.value.selected = s
+  }
+}
+
+async function confirmImport() {
+  giteaModal.value.importing = true
+  giteaModal.value.importedCount = 0
+  giteaModal.value.result = null
+
+  const picked = giteaModal.value.repos.filter(r => giteaModal.value.selected.has(r.fullName))
+  const payload = picked.map(r => ({
+    fullName: r.fullName,
+    cloneUrl: r.cloneUrl,
+    branch: r.defaultBranch,
+  }))
+  try {
+    const result = await ImportGiteaRepos({ repos: payload })
+    giteaModal.value.result = result
+    giteaModal.value.importedCount = result.imported?.length ?? 0
+    if (result.errors?.length) {
+      toast?.error(`导入完成：成功 ${result.imported.length}，失败 ${result.errors.length}`)
+    } else {
+      toast?.success(`成功导入 ${result.imported.length} 个项目`)
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`导入失败: ${msg}`)
+  }
+  giteaModal.value.importing = false
+}
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
 
@@ -494,4 +689,145 @@ onMounted(() => {
   font-size: 14px;
   cursor: pointer;
 }
+
+/* ---- Gitea 导入弹窗 ---- */
+
+.modal-lg {
+  width: 720px !important;
+  max-width: 92vw;
+}
+
+.repo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.repo-search {
+  flex: 1;
+  padding: 10px 12px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.repo-count {
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+  margin-left: auto;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--brand-start, #667eea);
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn-link:hover {
+  text-decoration: underline;
+}
+
+.repo-list {
+  max-height: 50vh;
+  overflow-y: auto;
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+}
+
+.repo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.repo-item:hover {
+  background: var(--bg-primary, #f9fafb);
+}
+.repo-item.selected {
+  background: var(--brand-soft, rgba(102, 126, 234, 0.08));
+}
+.repo-item input[type="checkbox"] {
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.repo-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.repo-name {
+  font-weight: 600;
+  color: var(--text-primary, #1a1a2e);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.repo-tag {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.repo-tag.private {
+  background: var(--warning-bg, #fffbeb);
+  color: var(--warning-fg, #92400e);
+}
+.repo-tag.branch {
+  background: var(--info-bg, #eff6ff);
+  color: var(--info-fg, #1e40af);
+}
+
+.repo-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spinner-sm {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--brand-start);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+.import-result {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--bg-primary, #f5f7fa);
+  border-radius: 6px;
+}
+.error-list {
+  margin: 6px 0 0 24px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-secondary, #666);
+}
+.error-list li {
+  margin-bottom: 3px;
+}
+.env-row {
+  display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px;
+}
+.env-row .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.env-row.ok   .dot { background: #16a34a; }
+.env-row.fail .dot { background: #dc2626; }
+.env-row.warn .dot { background: #d97706; }
+.env-value { flex: 1; word-break: break-word; }
 </style>
