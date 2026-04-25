@@ -84,6 +84,23 @@
             <span class="label">当前用户</span>
             <span class="value">{{ giteaUser.username }} ({{ giteaUser.email || '无邮箱' }})</span>
           </div>
+
+          <div v-if="verifyError" class="verify-error">
+            <div class="env-row fail" style="padding: 0;">
+              <span class="dot"></span>
+              <span class="value"><strong>验证失败</strong>：{{ verifyError }}</span>
+            </div>
+            <details class="verify-help">
+              <summary>排查建议</summary>
+              <ul>
+                <li><strong>HTTP 404</strong> → URL 应填 Gitea 根 (如 <code>http://192.168.3.128:3000</code>)，不要带 <code>/api/v1</code></li>
+                <li><strong>HTTP 401/403 / token invalid</strong> → token 错、过期，或权限缺 <code>read:repository</code></li>
+                <li><strong>unreachable / connection refused</strong> → URL 写错、Gitea 没启动、防火墙阻挡</li>
+                <li><strong>tls / x509</strong> → 自签名证书；改 <code>http://</code> 或在 Gitea 装可信证书</li>
+                <li>检查能否在浏览器里打开 <code>{{ gitea.baseURL || '<URL>' }}/api/v1/version</code></li>
+              </ul>
+            </details>
+          </div>
         </div>
 
         <!-- 仓库扫描 + 导入 -->
@@ -230,6 +247,7 @@ const giteaStatus = ref<GiteaStatus | null>(null)
 const giteaUser = ref<GiteaUser | null>(null)
 const savingGitea = ref(false)
 const verifying = ref(false)
+const verifyError = ref('')
 
 interface GiteaRepo {
   name: string
@@ -290,11 +308,13 @@ async function saveGitea() {
 async function verifyGitea() {
   verifying.value = true
   giteaUser.value = null
+  verifyError.value = ''
   try {
     giteaUser.value = await VerifyGitea()
     toast?.success(`验证成功：${giteaUser.value?.username}`)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    verifyError.value = msg
     toast?.error(`验证失败: ${msg}`)
   }
   verifying.value = false
@@ -601,6 +621,36 @@ h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
   padding: 0;
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.verify-error {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--danger-bg);
+  border-left: 3px solid var(--danger-fg);
+  border-radius: var(--radius-sm);
+}
+.verify-help {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.verify-help summary {
+  cursor: pointer;
+  color: var(--info-fg);
+  font-weight: 500;
+}
+.verify-help ul {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  line-height: 1.7;
+}
+.verify-help code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
 }
 
 /* env-row 共用 */
