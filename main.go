@@ -40,12 +40,17 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 255},
+		// dev 模式频繁 rebuild 时窗口会反复抢焦盖住 IDE；
+		// 启动时最小化到任务栏，需要时手动展开。
+		WindowStartState: options.Minimised,
 		OnStartup:        func(ctx context.Context) { app.Startup(ctx) },
 		OnShutdown:       func(ctx context.Context) { app.Shutdown(ctx) },
 		Bind:             []interface{}{app},
 		Windows: &windows.Options{
-			WebviewIsTransparent: false,
-			WindowIsTranslucent:  false,
+			WebviewIsTransparent:              false,
+			WindowIsTranslucent:               false,
+			DisableWindowIcon:                 false,
+			DisableFramelessWindowDecorations: false,
 		},
 	})
 	if err != nil {
