@@ -221,8 +221,9 @@
             </div>
           </template>
 
-          <div v-else class="env-row" style="padding: 20px; justify-content: center;">
-            <span>点击"扫描仓库"查看你能访问的所有仓库</span>
+          <div v-else-if="repoState.loading" class="env-row" style="padding: 20px; justify-content: center;">
+            <div class="spinner-sm"></div>
+            <span style="margin-left: 8px;">正在扫描你的仓库…</span>
           </div>
         </div>
       </section>
@@ -380,13 +381,29 @@ async function loadGiteaStatus() {
   }
 }
 
+// 已配置 token 时进入页面 / 切换 tab → 自动扫描，避免用户多点一次
+async function autoScanIfConfigured() {
+  if (giteaStatus.value?.hasToken && !repoState.value.scanned && !repoState.value.loading) {
+    await scanRepos()
+  }
+}
+
 async function saveGitea() {
   savingGitea.value = true
+  const tokenWasUpdated = gitea.value.tokenInput !== ''
   try {
     await SaveGiteaConfig({ baseUrl: gitea.value.baseURL, token: gitea.value.tokenInput })
     gitea.value.tokenInput = ''
     await loadGiteaStatus()
     toast?.success('Gitea 配置已保存')
+    // 配置变了 → 重置扫描结果，并自动重新扫一次
+    if (tokenWasUpdated || gitea.value.baseURL) {
+      repoState.value.scanned = false
+      repoState.value.repos = []
+      repoState.value.selected = new Set()
+      repoState.value.result = null
+      if (giteaStatus.value?.hasToken) await scanRepos()
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     toast?.error(`保存失败: ${msg}`)
@@ -469,8 +486,9 @@ function goToProjects() {
   router.push('/projects')
 }
 
-onMounted(() => {
-  loadGiteaStatus()
+onMounted(async () => {
+  await loadGiteaStatus()
+  await autoScanIfConfigured()
 })
 </script>
 
