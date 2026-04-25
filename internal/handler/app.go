@@ -48,12 +48,13 @@ func (a *App) Startup(ctx context.Context) {
 
 // Shutdown 实现 wails options.App.OnShutdown，释放资源。
 func (a *App) Shutdown(ctx context.Context) {
+	_ = ctx
 	store.Close()
 	slog.Info("application stopped")
 }
 
 // CheckDocker 探测本机 docker daemon 连通性。
 // 永不返回 error：连不上时返回 Status{Connected: false}。
-func (a *App) CheckDocker(ctx context.Context) docker.Status {
-	return a.docker.Check(ctx)
+func (a *App) CheckDocker() docker.Status {
+	return a.docker.Check(a.ctx)
 }

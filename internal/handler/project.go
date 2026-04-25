@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,12 +9,12 @@ import (
 )
 
 // ListProjects 列出全部项目，按 updated_at DESC 排序。
-func (a *App) ListProjects(ctx context.Context) ([]store.Project, error) {
+func (a *App) ListProjects() ([]store.Project, error) {
 	return store.ListProjects()
 }
 
 // CreateProject 新建项目。必填：name、path。
-func (a *App) CreateProject(ctx context.Context, req *CreateProjectRequest) (*store.Project, error) {
+func (a *App) CreateProject(req *CreateProjectRequest) (*store.Project, error) {
 	if req == nil {
 		return nil, ErrBadRequest
 	}
@@ -34,7 +33,7 @@ func (a *App) CreateProject(ctx context.Context, req *CreateProjectRequest) (*st
 }
 
 // UpdateProject 更新指定 ID 的项目；ID 不存在时返回 ErrProjectNotFound。
-func (a *App) UpdateProject(ctx context.Context, req *UpdateProjectRequest) (*store.Project, error) {
+func (a *App) UpdateProject(req *UpdateProjectRequest) (*store.Project, error) {
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, fmt.Errorf("%w: id required", ErrBadRequest)
 	}
@@ -53,7 +52,7 @@ func (a *App) UpdateProject(ctx context.Context, req *UpdateProjectRequest) (*st
 }
 
 // DeleteProject 按 ID 删除项目；不存在时返回 ErrProjectNotFound。
-func (a *App) DeleteProject(ctx context.Context, id string) error {
+func (a *App) DeleteProject(id string) error {
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("%w: id required", ErrBadRequest)
 	}

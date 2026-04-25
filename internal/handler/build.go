@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,7 +14,7 @@ import (
 
 // BuildImage 构建单个镜像（非 pipeline 路径，直接 UI 触发）。
 // 同时落一条 build_records 记录（building → success/failed），日志写入记录。
-func (a *App) BuildImage(ctx context.Context, req *BuildImageRequest) (*docker.BuildResult, error) {
+func (a *App) BuildImage(req *BuildImageRequest) (*docker.BuildResult, error) {
 	if req == nil || strings.TrimSpace(req.ProjectID) == "" {
 		return nil, fmt.Errorf("%w: projectId required", ErrBadRequest)
 	}
@@ -37,7 +36,7 @@ func (a *App) BuildImage(ctx context.Context, req *BuildImageRequest) (*docker.B
 		return nil, fmt.Errorf("create build record: %w", err)
 	}
 
-	res, buildErr := a.docker.BuildImage(ctx, docker.BuildRequest{
+	res, buildErr := a.docker.BuildImage(a.ctx, docker.BuildRequest{
 		Tag:         req.Tag,
 		ContextPath: req.ContextPath,
 		NoCache:     req.NoCache,
@@ -60,7 +59,7 @@ func (a *App) BuildImage(ctx context.Context, req *BuildImageRequest) (*docker.B
 }
 
 // ListBuildRecords 列出某项目最近的构建记录（不含日志，日志走 GetBuildRecord）。
-func (a *App) ListBuildRecords(ctx context.Context, projectID string) ([]store.BuildRecord, error) {
+func (a *App) ListBuildRecords(projectID string) ([]store.BuildRecord, error) {
 	if strings.TrimSpace(projectID) == "" {
 		return nil, fmt.Errorf("%w: projectId required", ErrBadRequest)
 	}
@@ -68,7 +67,7 @@ func (a *App) ListBuildRecords(ctx context.Context, projectID string) ([]store.B
 }
 
 // GetBuildRecord 按 ID 查一条构建记录（含完整日志）。
-func (a *App) GetBuildRecord(ctx context.Context, id string) (*store.BuildRecord, error) {
+func (a *App) GetBuildRecord(id string) (*store.BuildRecord, error) {
 	if strings.TrimSpace(id) == "" {
 		return nil, fmt.Errorf("%w: id required", ErrBadRequest)
 	}

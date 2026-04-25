@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,7 +12,7 @@ import (
 )
 
 // ListPipelines 列出某项目下全部流水线。
-func (a *App) ListPipelines(ctx context.Context, projectID string) ([]store.Pipeline, error) {
+func (a *App) ListPipelines(projectID string) ([]store.Pipeline, error) {
 	if strings.TrimSpace(projectID) == "" {
 		return nil, fmt.Errorf("%w: projectId required", ErrBadRequest)
 	}
@@ -21,12 +20,12 @@ func (a *App) ListPipelines(ctx context.Context, projectID string) ([]store.Pipe
 }
 
 // ListAllPipelines 一次性列出所有项目下的流水线，避免前端 N+1。
-func (a *App) ListAllPipelines(ctx context.Context) ([]store.Pipeline, error) {
+func (a *App) ListAllPipelines() ([]store.Pipeline, error) {
 	return store.ListAllPipelines()
 }
 
 // CreatePipeline 新建流水线。
-func (a *App) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*store.Pipeline, error) {
+func (a *App) CreatePipeline(req *CreatePipelineRequest) (*store.Pipeline, error) {
 	if req == nil || strings.TrimSpace(req.ProjectID) == "" || strings.TrimSpace(req.Name) == "" {
 		return nil, fmt.Errorf("%w: projectId and name are required", ErrBadRequest)
 	}
@@ -42,7 +41,7 @@ func (a *App) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*
 }
 
 // UpdatePipeline 更新指定 ID 的流水线。
-func (a *App) UpdatePipeline(ctx context.Context, req *UpdatePipelineRequest) (*store.Pipeline, error) {
+func (a *App) UpdatePipeline(req *UpdatePipelineRequest) (*store.Pipeline, error) {
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, fmt.Errorf("%w: id required", ErrBadRequest)
 	}
@@ -61,7 +60,7 @@ func (a *App) UpdatePipeline(ctx context.Context, req *UpdatePipelineRequest) (*
 }
 
 // DeletePipeline 按 ID 删除流水线。
-func (a *App) DeletePipeline(ctx context.Context, id string) error {
+func (a *App) DeletePipeline(id string) error {
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("%w: id required", ErrBadRequest)
 	}
@@ -76,7 +75,7 @@ func (a *App) DeletePipeline(ctx context.Context, id string) error {
 
 // ExportPipelineToYaml 导出指定流水线为 YAML 文本。
 // 不存在时返回 ErrPipelineNotFound；YAML 解析失败时返回具体错误。
-func (a *App) ExportPipelineToYaml(ctx context.Context, id string) (string, error) {
+func (a *App) ExportPipelineToYaml(id string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("%w: id required", ErrBadRequest)
 	}
@@ -114,7 +113,7 @@ func (a *App) ExportPipelineToYaml(ctx context.Context, id string) (string, erro
 }
 
 // ImportPipelineFromYaml 解析 YAML 并新建流水线；失败原因前置在 error 中。
-func (a *App) ImportPipelineFromYaml(ctx context.Context, req *ImportPipelineYamlRequest) (*store.Pipeline, error) {
+func (a *App) ImportPipelineFromYaml(req *ImportPipelineYamlRequest) (*store.Pipeline, error) {
 	if req == nil {
 		return nil, ErrBadRequest
 	}
@@ -155,11 +154,11 @@ func (a *App) ImportPipelineFromYaml(ctx context.Context, req *ImportPipelineYam
 }
 
 // ExecutePipeline 触发一次流水线执行；同一 pipelineID 并发提交时返回 pipeline.ErrPipelineBusy。
-func (a *App) ExecutePipeline(ctx context.Context, req *ExecutePipelineRequest) (*pipeline.ExecuteResult, error) {
+func (a *App) ExecutePipeline(req *ExecutePipelineRequest) (*pipeline.ExecuteResult, error) {
 	if req == nil || strings.TrimSpace(req.PipelineID) == "" {
 		return nil, fmt.Errorf("%w: pipelineId required", ErrBadRequest)
 	}
-	res, err := a.executor.Execute(ctx, req.PipelineID, req.ProjectID)
+	res, err := a.executor.Execute(a.ctx, req.PipelineID, req.ProjectID)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			return nil, ErrPipelineNotFound

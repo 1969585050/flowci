@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +12,7 @@ import (
 
 // GenerateCompose 由规格产出 docker-compose.yml 文本。
 // 基础字段过白名单，避免产出非法 YAML 或注入。
-func (a *App) GenerateCompose(ctx context.Context, req *GenerateComposeRequest) (string, error) {
+func (a *App) GenerateCompose(req *GenerateComposeRequest) (string, error) {
 	if req == nil || strings.TrimSpace(req.Image) == "" || strings.TrimSpace(req.Name) == "" {
 		return "", fmt.Errorf("%w: image and name required", ErrBadRequest)
 	}
@@ -44,7 +43,7 @@ func (a *App) GenerateCompose(ctx context.Context, req *GenerateComposeRequest) 
 
 // DeployWithCompose 将 compose 文本写到 workdir/docker-compose.yml 并 up -d。
 // workdir 必须在 App.dataDir 下，防止覆盖任意路径的已有 compose 文件。
-func (a *App) DeployWithCompose(ctx context.Context, req *DeployWithComposeRequest) (*docker.ComposeDeployResult, error) {
+func (a *App) DeployWithCompose(req *DeployWithComposeRequest) (*docker.ComposeDeployResult, error) {
 	if req == nil || strings.TrimSpace(req.Compose) == "" {
 		return nil, fmt.Errorf("%w: compose required", ErrBadRequest)
 	}
@@ -54,7 +53,7 @@ func (a *App) DeployWithCompose(ctx context.Context, req *DeployWithComposeReque
 		return nil, err
 	}
 
-	res, err := a.docker.DeployWithCompose(ctx, req.Compose, workdir)
+	res, err := a.docker.DeployWithCompose(a.ctx, req.Compose, workdir)
 	if err != nil {
 		return &res, err
 	}

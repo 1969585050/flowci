@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"os"
 	"strings"
 	"testing"
@@ -54,7 +53,7 @@ func TestExportPipelineToYaml_RoundTrip(t *testing.T) {
 	}
 
 	app := NewApp(os.TempDir())
-	out, err := app.ExportPipelineToYaml(context.Background(), created.ID)
+	out, err := app.ExportPipelineToYaml(created.ID)
 	if err != nil {
 		t.Fatalf("ExportPipelineToYaml: %v", err)
 	}
@@ -86,7 +85,7 @@ func TestExportPipelineToYaml_NotFound(t *testing.T) {
 	defer cleanup()
 
 	app := NewApp(os.TempDir())
-	_, err := app.ExportPipelineToYaml(context.Background(), "no-such-id")
+	_, err := app.ExportPipelineToYaml("no-such-id")
 	if err == nil {
 		t.Fatal("expected error for nonexistent pipeline")
 	}
@@ -123,7 +122,7 @@ steps:
 `
 
 	app := NewApp(os.TempDir())
-	result, err := app.ImportPipelineFromYaml(context.Background(), &ImportPipelineYamlRequest{
+	result, err := app.ImportPipelineFromYaml(&ImportPipelineYamlRequest{
 		ProjectID: project.ID,
 		Yaml:      yamlContent,
 	})
@@ -159,7 +158,7 @@ steps:
 `
 
 	app := NewApp(os.TempDir())
-	_, err = app.ImportPipelineFromYaml(context.Background(), &ImportPipelineYamlRequest{
+	_, err = app.ImportPipelineFromYaml(&ImportPipelineYamlRequest{
 		ProjectID: project.ID,
 		Yaml:      yamlContent,
 	})

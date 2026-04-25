@@ -1,20 +1,19 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 
 	"flowci/internal/store"
 )
 
 // GetSettings 返回所有设置键值对（key-value 皆 string）。
-func (a *App) GetSettings(ctx context.Context) (map[string]string, error) {
+func (a *App) GetSettings() (map[string]string, error) {
 	return store.GetSettings()
 }
 
 // SaveSettings 批量写入设置。
 // TODO(phase-3)：包在事务里保证原子性；敏感 key（password/token）走 keyring。
-func (a *App) SaveSettings(ctx context.Context, req *SaveSettingsRequest) error {
+func (a *App) SaveSettings(req *SaveSettingsRequest) error {
 	if req == nil || req.Settings == nil {
 		return fmt.Errorf("%w: settings required", ErrBadRequest)
 	}
@@ -27,7 +26,7 @@ func (a *App) SaveSettings(ctx context.Context, req *SaveSettingsRequest) error 
 }
 
 // GetSupportedLanguages 返回前端 Dockerfile 生成器支持的语言列表。
-func (a *App) GetSupportedLanguages(ctx context.Context) []Language {
+func (a *App) GetSupportedLanguages() []Language {
 	return []Language{
 		{Language: "nodejs", DisplayName: "🟢 Node.js"},
 		{Language: "python", DisplayName: "🐍 Python"},
@@ -44,7 +43,7 @@ func (a *App) GetSupportedLanguages(ctx context.Context) []Language {
 
 // GenerateDockerfile 返回指定语言的 Dockerfile 模板。
 // 不支持的语言返回 ErrUnsupportedLang。
-func (a *App) GenerateDockerfile(ctx context.Context, language string) (string, error) {
+func (a *App) GenerateDockerfile(language string) (string, error) {
 	tmpl, ok := dockerfileTemplates[language]
 	if !ok {
 		return "", fmt.Errorf("%w: %s", ErrUnsupportedLang, language)

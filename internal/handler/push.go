@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -20,7 +19,7 @@ import (
 //  3. 都没有则不登录，期望 docker 已有本地缓存
 //
 // 日志输出 Password 以 *** 遮蔽。
-func (a *App) PushImage(ctx context.Context, req *PushImageRequest) (*docker.PushResult, error) {
+func (a *App) PushImage(req *PushImageRequest) (*docker.PushResult, error) {
 	if req == nil || strings.TrimSpace(req.Image) == "" {
 		return nil, fmt.Errorf("%w: image required", ErrBadRequest)
 	}
@@ -47,7 +46,7 @@ func (a *App) PushImage(ctx context.Context, req *PushImageRequest) (*docker.Pus
 		"username", req.Username,
 		"password", secret.Mask(password))
 
-	res, err := a.docker.PushImage(ctx, docker.PushRequest{
+	res, err := a.docker.PushImage(a.ctx, docker.PushRequest{
 		Image:    req.Image,
 		Registry: req.Registry,
 		Username: req.Username,

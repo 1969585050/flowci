@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -40,7 +39,7 @@ func TestCheckDocker_ReturnsClientStatus(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	got := app.CheckDocker(context.Background())
+	got := app.CheckDocker()
 	if !got.Connected || got.Version != "25.0.3" {
 		t.Errorf("unexpected: %+v", got)
 	}
@@ -53,7 +52,7 @@ func TestBuildImage_WritesBuildRecord(t *testing.T) {
 	app, pid, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	res, err := app.BuildImage(context.Background(), &BuildImageRequest{
+	res, err := app.BuildImage(&BuildImageRequest{
 		ProjectID: pid, Tag: "nginx:v1", ContextPath: ".",
 	})
 	if err != nil {
@@ -83,7 +82,7 @@ func TestBuildImage_FailedRecordStatus(t *testing.T) {
 	app, pid, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	_, err := app.BuildImage(context.Background(), &BuildImageRequest{
+	_, err := app.BuildImage(&BuildImageRequest{
 		ProjectID: pid, Tag: "x:v1",
 	})
 	if err == nil {
@@ -101,7 +100,7 @@ func TestBuildImage_InvalidTagRejected(t *testing.T) {
 	app, pid, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	_, err := app.BuildImage(context.Background(), &BuildImageRequest{
+	_, err := app.BuildImage(&BuildImageRequest{
 		ProjectID: pid, Tag: "NGINX:UPPERCASE", // 大写不符合 ImageRef 白名单
 	})
 	if !errors.Is(err, ErrBadRequest) {
@@ -117,7 +116,7 @@ func TestBuildImage_ProjectNotFound(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	_, err := app.BuildImage(context.Background(), &BuildImageRequest{
+	_, err := app.BuildImage(&BuildImageRequest{
 		ProjectID: "nonexistent", Tag: "x:v1",
 	})
 	if !errors.Is(err, ErrProjectNotFound) {
@@ -132,7 +131,7 @@ func TestRemoveImage_NotFound(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	err := app.RemoveImage(context.Background(), "abc")
+	err := app.RemoveImage("abc")
 	if err == nil || !strings.Contains(err.Error(), "镜像不存在") {
 		t.Errorf("expected 镜像不存在, got %v", err)
 	}
@@ -143,7 +142,7 @@ func TestRemoveImage_InUse(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	err := app.RemoveImage(context.Background(), "abc")
+	err := app.RemoveImage("abc")
 	if err == nil || !strings.Contains(err.Error(), "镜像正在使用中") {
 		t.Errorf("expected 镜像正在使用中, got %v", err)
 	}
@@ -154,7 +153,7 @@ func TestRemoveImage_EmptyID(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	err := app.RemoveImage(context.Background(), "")
+	err := app.RemoveImage("")
 	if !errors.Is(err, ErrBadRequest) {
 		t.Errorf("expected ErrBadRequest, got %v", err)
 	}
@@ -171,7 +170,7 @@ func TestListContainers_PassThroughFromClient(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	list, err := app.ListContainers(context.Background())
+	list, err := app.ListContainers()
 	if err != nil {
 		t.Fatalf("ListContainers: %v", err)
 	}
@@ -185,14 +184,13 @@ func TestStartStopRemoveContainer_CallsClient(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	ctx := context.Background()
-	if err := app.StartContainer(ctx, "id1"); err != nil {
+	if err := app.StartContainer("id1"); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if err := app.StopContainer(ctx, "id1"); err != nil {
+	if err := app.StopContainer("id1"); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if err := app.RemoveContainer(ctx, "id1"); err != nil {
+	if err := app.RemoveContainer("id1"); err != nil {
 		t.Fatalf("Remove: %v", err)
 	}
 
@@ -209,7 +207,7 @@ func TestStartContainer_EmptyID(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	if err := app.StartContainer(context.Background(), ""); !errors.Is(err, ErrBadRequest) {
+	if err := app.StartContainer(""); !errors.Is(err, ErrBadRequest) {
 		t.Errorf("expected ErrBadRequest, got %v", err)
 	}
 }
@@ -219,7 +217,7 @@ func TestGetContainerLogs_DefaultTail(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	out, err := app.GetContainerLogs(context.Background(), "id1", 0)
+	out, err := app.GetContainerLogs("id1", 0)
 	if err != nil {
 		t.Fatalf("GetContainerLogs: %v", err)
 	}
@@ -239,7 +237,7 @@ func TestDeployContainer_InvalidName(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	_, err := app.DeployContainer(context.Background(), &DeployContainerRequest{
+	_, err := app.DeployContainer(&DeployContainerRequest{
 		Image: "nginx:latest",
 		Name:  "has space", // 含空格，白名单拒绝
 	})
@@ -256,7 +254,7 @@ func TestDeployContainer_Success(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	res, err := app.DeployContainer(context.Background(), &DeployContainerRequest{
+	res, err := app.DeployContainer(&DeployContainerRequest{
 		Image: "nginx:latest", Name: "web",
 		HostPort: "8080", ContainerPort: "80",
 	})
@@ -282,7 +280,7 @@ func TestPushImage_ValidRequestPassesThrough(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	res, err := app.PushImage(context.Background(), &PushImageRequest{
+	res, err := app.PushImage(&PushImageRequest{
 		Image: "myimg:v1", Registry: "docker.io",
 		Username: "alice", Password: "pw123",
 	})
@@ -307,7 +305,7 @@ func TestPushImage_InvalidRegistryRejected(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	_, err := app.PushImage(context.Background(), &PushImageRequest{
+	_, err := app.PushImage(&PushImageRequest{
 		Image: "myimg:v1", Registry: "https://evil.example.com", // scheme 前缀被白名单拒
 	})
 	if !errors.Is(err, ErrBadRequest) {
@@ -330,7 +328,7 @@ func TestDeployWithCompose_WorkdirOutsideDataDirRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("abs: %v", err)
 	}
-	_, err = app.DeployWithCompose(context.Background(), &DeployWithComposeRequest{
+	_, err = app.DeployWithCompose(&DeployWithComposeRequest{
 		Compose: "version: '3'",
 		Workdir: outside,
 	})
@@ -347,7 +345,7 @@ func TestDeployWithCompose_DefaultWorkdir(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	res, err := app.DeployWithCompose(context.Background(), &DeployWithComposeRequest{
+	res, err := app.DeployWithCompose(&DeployWithComposeRequest{
 		Compose: "version: '3.8'\nservices:\n  web: {image: nginx}",
 		Workdir: "", // 空 → 默认 dataDir/tmp/compose
 	})
@@ -382,7 +380,7 @@ func TestExecutePipeline_CallsExecutor(t *testing.T) {
 		t.Fatalf("CreatePipeline: %v", err)
 	}
 
-	res, err := app.ExecutePipeline(context.Background(), &ExecutePipelineRequest{
+	res, err := app.ExecutePipeline(&ExecutePipelineRequest{
 		PipelineID: pl.ID, ProjectID: pid,
 	})
 	if err != nil {
@@ -401,7 +399,7 @@ func TestExecutePipeline_NotFound(t *testing.T) {
 	app, _, cleanup := setupApp(t, fake)
 	defer cleanup()
 
-	_, err := app.ExecutePipeline(context.Background(), &ExecutePipelineRequest{
+	_, err := app.ExecutePipeline(&ExecutePipelineRequest{
 		PipelineID: "nonexistent", ProjectID: "nonexistent",
 	})
 	if !errors.Is(err, ErrPipelineNotFound) {
