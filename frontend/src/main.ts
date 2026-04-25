@@ -15,9 +15,11 @@ import BuildDetailView from './views/BuildDetailView.vue'
 import ImagesView from './views/ImagesView.vue'
 import PipelineView from './views/PipelineView.vue'
 import RepositoriesView from './views/RepositoriesView.vue'
+import DashboardView from './views/DashboardView.vue'
 
 const routes = [
-  { path: '/', redirect: '/projects' },
+  { path: '/', redirect: '/dashboard' },
+  { path: '/dashboard', component: DashboardView },
   { path: '/projects', component: ProjectsView },
   { path: '/repositories', component: RepositoriesView },
   { path: '/build', component: BuildView },

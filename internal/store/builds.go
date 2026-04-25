@@ -132,6 +132,63 @@ func loadBuildLog(logPath, legacy string) string {
 	return string(data)
 }
 
+// RecentBuildsAcrossProjects 全局最近 N 条构建记录（按 started_at DESC，不含 log）。
+// 用于 Dashboard 首页"最近活动"卡片。
+func RecentBuildsAcrossProjects(limit int) ([]BuildRecord, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := DB.Query(
+		`SELECT id, project_id, image_name, image_tag, status, log_size, started_at, finished_at
+		 FROM build_records ORDER BY started_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("recent builds: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]BuildRecord, 0)
+	for rows.Next() {
+		var r BuildRecord
+		var finishedAt sql.NullTime
+		if err := rows.Scan(&r.ID, &r.ProjectID, &r.ImageName, &r.ImageTag, &r.Status, &r.LogSize, &r.StartedAt, &finishedAt); err != nil {
+			return nil, fmt.Errorf("scan recent build: %w", err)
+		}
+		if finishedAt.Valid {
+			r.FinishedAt = &finishedAt.Time
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// CountBuildsByStatusSince 统计 since 之后按 status 分组的构建数。
+// 用于 Dashboard 24h 摘要。
+func CountBuildsByStatusSince(since time.Time) (success, failed, building int, err error) {
+	rows, qerr := DB.Query(
+		`SELECT status, COUNT(*) FROM build_records WHERE started_at >= ? GROUP BY status`,
+		since.UTC())
+	if qerr != nil {
+		return 0, 0, 0, fmt.Errorf("count builds since: %w", qerr)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var s string
+		var n int
+		if err := rows.Scan(&s, &n); err != nil {
+			return 0, 0, 0, fmt.Errorf("scan: %w", err)
+		}
+		switch s {
+		case "success":
+			success = n
+		case "failed":
+			failed = n
+		case "building", "pending":
+			building += n
+		}
+	}
+	return success, failed, building, rows.Err()
+}
+
 // LatestBuildRecord 取某项目最近一条构建记录（不含 log），用于项目卡片摘要。
 // 不存在返回 (BuildRecord{}, ErrNotFound)。
 func LatestBuildRecord(projectID string) (BuildRecord, error) {

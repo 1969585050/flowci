@@ -77,6 +77,15 @@ func ListPipelines(projectID string) ([]Pipeline, error) {
 	return pipelines, rows.Err()
 }
 
+// CountPipelines 流水线总数（Dashboard 用）。
+func CountPipelines() (int, error) {
+	var n int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM pipelines`).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count pipelines: %w", err)
+	}
+	return n, nil
+}
+
 // ListAllPipelines 列出所有项目下的流水线（前端一次拉取，避免 N+1）。
 func ListAllPipelines() ([]Pipeline, error) {
 	rows, err := DB.Query(

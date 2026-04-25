@@ -7,7 +7,10 @@
 //  4. handler 本身不写业务；调 internal/docker, internal/pipeline, internal/store
 package handler
 
-import "flowci/internal/store"
+import (
+	"flowci/internal/docker"
+	"flowci/internal/store"
+)
 
 // ---- Project ----
 
@@ -162,6 +165,34 @@ type ProjectStats struct {
 	BuildCount    int                `json:"buildCount"`              // 该项目历史构建总数
 	HeadCommit    string             `json:"headCommit,omitempty"`    // git 项目本地 HEAD 短 SHA
 	HeadSubject   string             `json:"headSubject,omitempty"`   // git 项目本地 HEAD commit subject
+}
+
+// ---- Dashboard ----
+
+// DashboardStats Dashboard 首页一次拉所有概览数据。
+type DashboardStats struct {
+	Projects     int                `json:"projects"`     // 项目总数
+	GitProjects  int                `json:"gitProjects"`  // 其中 Git 仓库项目数
+	Pipelines    int                `json:"pipelines"`    // 流水线总数
+	Containers   ContainerStats     `json:"containers"`   // 容器统计
+	Images       int                `json:"images"`       // 镜像总数
+	Docker       docker.Status      `json:"docker"`       // docker 连通性
+	RecentBuilds []store.BuildRecord `json:"recentBuilds"` // 全局最近 10 条构建（跨项目）
+	BuildSummary BuildSummaryStats  `json:"buildSummary"` // 24h 内构建成功/失败/进行中数
+}
+
+// ContainerStats 容器分状态计数。
+type ContainerStats struct {
+	Total   int `json:"total"`
+	Running int `json:"running"`
+	Stopped int `json:"stopped"`
+}
+
+// BuildSummaryStats 最近 24h 构建统计。
+type BuildSummaryStats struct {
+	Success  int `json:"success"`
+	Failed   int `json:"failed"`
+	Building int `json:"building"`
 }
 
 // ---- Gitea 集成 ----
