@@ -36,14 +36,23 @@ func NewAppWithClient(dataDir string, client docker.Client) *App {
 }
 
 // Startup 实现 wails options.App.OnStartup，由 wails runtime 回调。
-// 此时 context 已可用；store 在这里初始化。
+// 此时 context 已可用；store 在这里初始化；运行时配置（如 dockerHost）也在此加载。
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	slog.Info("application starting")
 	if err := store.Init(a.dataDir); err != nil {
 		slog.Error("initialize store failed", "err", err)
+		return
 	}
 	slog.Info("data directory", "path", a.dataDir)
+
+	// 从 settings 表加载持久化的 docker host 配置（远程 daemon 场景）
+	if settings, err := store.GetSettings(); err == nil {
+		if host := settings["dockerHost"]; host != "" {
+			docker.SetDockerHost(host)
+			slog.Info("docker host from settings", "host", host)
+		}
+	}
 }
 
 // Shutdown 实现 wails options.App.OnShutdown，释放资源。

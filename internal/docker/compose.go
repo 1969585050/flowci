@@ -83,6 +83,7 @@ func DeployWithCompose(ctx context.Context, content, workDir string) (ComposeDep
 	ctxTO, cancel := context.WithTimeout(ctx, TimeoutCompose)
 	defer cancel()
 	cmd := exec.CommandContext(ctxTO, "docker", "compose", "up", "-d")
+	applyEnv(cmd)
 	cmd.Dir = workDir
 	out, err := cmd.CombinedOutput()
 	res := ComposeDeployResult{Output: string(out)}

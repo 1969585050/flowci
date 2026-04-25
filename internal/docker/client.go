@@ -11,10 +11,55 @@ package docker
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
+
+// dockerHost 配置 DOCKER_HOST 环境变量，注入给所有 docker 子进程。
+// 空串时不注入，保留用户系统的 DOCKER_HOST（或本地 docker daemon）。
+// 通过 SetDockerHost 在程序运行时由 handler 层从 settings 表加载/更新。
+var (
+	dockerHostMu sync.RWMutex
+	dockerHost   string
+)
+
+// SetDockerHost 配置后续所有 docker 调用的 DOCKER_HOST。
+// 例如 "tcp://192.168.1.100:2375" 或 "ssh://user@host"。
+// 传空串恢复使用本地 daemon（或用户系统已设的 DOCKER_HOST）。
+func SetDockerHost(host string) {
+	dockerHostMu.Lock()
+	dockerHost = strings.TrimSpace(host)
+	dockerHostMu.Unlock()
+}
+
+// GetDockerHost 返回当前配置的 DOCKER_HOST（用于 UI 展示）。
+func GetDockerHost() string {
+	dockerHostMu.RLock()
+	defer dockerHostMu.RUnlock()
+	return dockerHost
+}
+
+// applyEnv 给 cmd 注入 DOCKER_HOST（如已配置非空值）。
+// 不修改全局 os.Environ，仅作用于该 cmd 子进程。
+func applyEnv(cmd *exec.Cmd) {
+	host := GetDockerHost()
+	if host == "" {
+		return
+	}
+	if cmd.Env == nil {
+		cmd.Env = os.Environ()
+	}
+	filtered := cmd.Env[:0:0]
+	for _, e := range cmd.Env {
+		if !strings.HasPrefix(e, "DOCKER_HOST=") {
+			filtered = append(filtered, e)
+		}
+	}
+	cmd.Env = append(filtered, "DOCKER_HOST="+host)
+}
 
 // 超时常量表（对齐 ipc-spec.md § 6.2）。
 const (
@@ -38,6 +83,7 @@ func Check(ctx context.Context) Status {
 	ctxTO, cancel := context.WithTimeout(ctx, TimeoutQuery)
 	defer cancel()
 	cmd := exec.CommandContext(ctxTO, "docker", "version", "--format", "{{.Server.Version}}")
+	applyEnv(cmd)
 	output, err := cmd.Output()
 	if err != nil {
 		return Status{Connected: false}
@@ -113,6 +159,7 @@ func run(ctx context.Context, timeout time.Duration, args ...string) ([]byte, er
 	ctxTO, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctxTO, "docker", args...)
+	applyEnv(cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, fmt.Errorf("docker %s: %w: %s", args[0], err, strings.TrimSpace(string(out)))

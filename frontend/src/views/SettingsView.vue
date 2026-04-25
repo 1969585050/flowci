@@ -11,7 +11,24 @@
       <div v-if="dockerStatus.version" class="version-info">
         <span>Docker 版本: {{ dockerStatus.version }}</span>
       </div>
-      <button class="btn-outline" @click="checkDocker" style="margin-top: 16px;">检查连接</button>
+
+      <div class="form-group" style="margin-top: 20px;">
+        <label>Docker Host（远程 daemon 地址，留空使用本地）</label>
+        <input
+          v-model="settings.dockerHost"
+          type="text"
+          placeholder="tcp://192.168.1.100:2375 或 ssh://user@host"
+        />
+        <p class="hint">
+          支持 tcp:// / ssh:// / npipe:// / unix:// 协议，等同于设置 DOCKER_HOST 环境变量。
+          保存后立即生效，无需重启。
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 16px;">
+        <button class="btn-outline" @click="checkDocker">检查连接</button>
+        <button class="btn-primary" @click="saveSettings">保存</button>
+      </div>
     </div>
 
     <div class="card">
@@ -81,7 +98,8 @@ const dockerStatus = ref({
 const settings = ref({
   defaultRegistry: 'docker.io',
   defaultWorkdir: '/workspace',
-  theme: 'system'
+  theme: 'system',
+  dockerHost: '',
 })
 
 async function loadSettings() {
@@ -89,6 +107,7 @@ async function loadSettings() {
     const result = await GetSettings()
     if (result.defaultRegistry) settings.value.defaultRegistry = result.defaultRegistry
     if (result.defaultWorkdir) settings.value.defaultWorkdir = result.defaultWorkdir
+    if (result.dockerHost) settings.value.dockerHost = result.dockerHost
     if (result.theme) {
       settings.value.theme = result.theme
       themeContext?.setTheme(result.theme)
@@ -134,9 +153,12 @@ async function saveSettings() {
         defaultRegistry: settings.value.defaultRegistry,
         defaultWorkdir: settings.value.defaultWorkdir,
         theme: settings.value.theme,
+        dockerHost: settings.value.dockerHost,
       },
     })
-    toast?.success('设置已保存！')
+    toast?.success('设置已保存')
+    // dockerHost 改了后立刻重测连接
+    void checkDocker()
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     toast?.error(`保存失败: ${msg}`)

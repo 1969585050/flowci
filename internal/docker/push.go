@@ -63,6 +63,7 @@ func dockerLogin(ctx context.Context, registry, username, password string) error
 	}
 	args = append(args, "-u", username, "--password-stdin")
 	cmd := exec.CommandContext(ctxTO, "docker", args...)
+	applyEnv(cmd)
 	cmd.Stdin = strings.NewReader(password)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

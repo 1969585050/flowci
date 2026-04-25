@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 
+	"flowci/internal/docker"
 	"flowci/internal/store"
 )
 
@@ -11,7 +12,7 @@ func (a *App) GetSettings() (map[string]string, error) {
 	return store.GetSettings()
 }
 
-// SaveSettings 批量写入设置。
+// SaveSettings 批量写入设置；保存 dockerHost 时同步 docker 包的运行时变量。
 // TODO(phase-3)：包在事务里保证原子性；敏感 key（password/token）走 keyring。
 func (a *App) SaveSettings(req *SaveSettingsRequest) error {
 	if req == nil || req.Settings == nil {
@@ -20,6 +21,9 @@ func (a *App) SaveSettings(req *SaveSettingsRequest) error {
 	for k, v := range req.Settings {
 		if err := store.SaveSettings(k, v); err != nil {
 			return err
+		}
+		if k == "dockerHost" {
+			docker.SetDockerHost(v)
 		}
 	}
 	return nil
