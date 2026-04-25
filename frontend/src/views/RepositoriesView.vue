@@ -143,26 +143,45 @@
             </div>
 
             <div class="repo-list" v-if="repoState.repos.length > 0">
-              <label
-                v-for="r in filteredRepos"
-                :key="r.fullName"
-                class="repo-item"
-                :class="{ selected: repoState.selected.has(r.fullName) }"
-              >
-                <input
-                  type="checkbox"
-                  :checked="repoState.selected.has(r.fullName)"
-                  @change="toggleRepo(r.fullName)"
-                />
-                <div class="repo-meta">
-                  <div class="repo-name">
-                    {{ r.fullName }}
-                    <span v-if="r.private" class="repo-tag private">私有</span>
-                    <span class="repo-tag branch">{{ r.defaultBranch }}</span>
-                  </div>
-                  <div v-if="r.description" class="repo-desc">{{ r.description }}</div>
+              <div v-for="group in groupedRepos" :key="group.owner" class="owner-group">
+                <div class="owner-header" @click="toggleGroup(group.owner)">
+                  <span class="owner-arrow" :class="{ collapsed: !isExpanded(group.owner) }">▾</span>
+                  <span class="owner-name">{{ group.owner }}</span>
+                  <span class="owner-count">{{ group.repos.length }} 个仓库</span>
+                  <span class="owner-selected" v-if="group.selectedCount > 0">
+                    已选 {{ group.selectedCount }}
+                  </span>
+                  <button
+                    class="btn-link owner-toggle-all"
+                    @click.stop="toggleGroupAll(group)"
+                  >
+                    {{ group.allSelected ? '取消全选' : '全选' }}
+                  </button>
                 </div>
-              </label>
+
+                <div v-if="isExpanded(group.owner)" class="owner-repos">
+                  <label
+                    v-for="r in group.repos"
+                    :key="r.fullName"
+                    class="repo-item"
+                    :class="{ selected: repoState.selected.has(r.fullName) }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="repoState.selected.has(r.fullName)"
+                      @change="toggleRepo(r.fullName)"
+                    />
+                    <div class="repo-meta">
+                      <div class="repo-name">
+                        {{ repoShortName(r.fullName) }}
+                        <span v-if="r.private" class="repo-tag private">私有</span>
+                        <span class="repo-tag branch">{{ r.defaultBranch }}</span>
+                      </div>
+                      <div v-if="r.description" class="repo-desc">{{ r.description }}</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div v-else class="env-row" style="padding: 20px; justify-content: center;">
@@ -292,6 +311,65 @@ const allSelected = computed(() => {
   const list = filteredRepos.value
   return list.length > 0 && list.every(r => repoState.value.selected.has(r.fullName))
 })
+
+// 按 owner 分组（owner 取自 fullName 的第一段）
+interface RepoGroup {
+  owner: string
+  repos: GiteaRepo[]
+  selectedCount: number
+  allSelected: boolean
+}
+const groupedRepos = computed<RepoGroup[]>(() => {
+  const map = new Map<string, GiteaRepo[]>()
+  for (const r of filteredRepos.value) {
+    const owner = (r.fullName.split('/')[0] || 'unknown').toLowerCase()
+    const arr = map.get(owner) ?? []
+    arr.push(r)
+    map.set(owner, arr)
+  }
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([owner, repos]) => {
+      const selectedCount = repos.filter(r => repoState.value.selected.has(r.fullName)).length
+      return {
+        owner,
+        repos,
+        selectedCount,
+        allSelected: selectedCount === repos.length,
+      }
+    })
+})
+
+// 折叠状态：默认全部展开（搜索时也展开匹配到的组）
+const collapsedOwners = ref(new Set<string>())
+function isExpanded(owner: string): boolean {
+  // 搜索时强制全展开
+  if (repoState.value.search.trim() !== '') return true
+  return !collapsedOwners.value.has(owner)
+}
+function toggleGroup(owner: string) {
+  if (repoState.value.search.trim() !== '') return // 搜索时禁用折叠
+  const s = new Set(collapsedOwners.value)
+  if (s.has(owner)) s.delete(owner)
+  else s.add(owner)
+  collapsedOwners.value = s
+}
+
+function toggleGroupAll(group: RepoGroup) {
+  const s = new Set(repoState.value.selected)
+  if (group.allSelected) {
+    group.repos.forEach(r => s.delete(r.fullName))
+  } else {
+    group.repos.forEach(r => s.add(r.fullName))
+  }
+  repoState.value.selected = s
+}
+
+// "owner/repo" → "repo"（owner 已在 group header 显示，避免重复）
+function repoShortName(fullName: string): string {
+  const i = fullName.indexOf('/')
+  return i >= 0 ? fullName.slice(i + 1) : fullName
+}
 
 async function loadGiteaStatus() {
   try {
@@ -583,13 +661,70 @@ h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
 }
+
+.owner-group {
+  border-bottom: 1px solid var(--border-color);
+}
+.owner-group:last-child { border-bottom: none; }
+
+.owner-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.owner-header:hover { background: var(--brand-soft); }
+
+.owner-arrow {
+  font-size: 11px;
+  color: var(--text-secondary);
+  transition: transform 0.15s;
+}
+.owner-arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.owner-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.owner-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.owner-selected {
+  font-size: 11px;
+  color: var(--brand-start);
+  background: var(--brand-soft);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.owner-toggle-all {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.owner-repos {
+  background: var(--card-bg);
+}
+
 .repo-item {
   display: flex; align-items: flex-start;
-  gap: 12px; padding: 10px 14px;
-  border-bottom: 1px solid var(--border-color);
+  gap: 12px; padding: 8px 14px 8px 36px; /* 缩进让组层级更清晰 */
+  border-top: 1px solid var(--border-color);
   cursor: pointer;
   transition: background 0.12s;
 }
+.repo-item:first-child { border-top: none; }
 .repo-item:hover { background: var(--bg-primary); }
 .repo-item.selected { background: var(--brand-soft); }
 .repo-item input[type="checkbox"] { margin-top: 4px; cursor: pointer; }
