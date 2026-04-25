@@ -154,6 +154,16 @@ type Language struct {
 	DisplayName string `json:"displayName"`
 }
 
+// ProjectStats 项目卡片用的丰富视图：基础字段 + 最近构建 + Git HEAD。
+// 一次拉全列表，避免前端 N+1。
+type ProjectStats struct {
+	Project       store.Project      `json:"project"`
+	LastBuild     *store.BuildRecord `json:"lastBuild,omitempty"`     // 不存在为 nil
+	BuildCount    int                `json:"buildCount"`              // 该项目历史构建总数
+	HeadCommit    string             `json:"headCommit,omitempty"`    // git 项目本地 HEAD 短 SHA
+	HeadSubject   string             `json:"headSubject,omitempty"`   // git 项目本地 HEAD commit subject
+}
+
 // ---- Gitea 集成 ----
 
 // SaveGiteaConfigRequest 保存 Gitea 实例 URL 与 token。

@@ -20,21 +20,72 @@
     </div>
 
     <div v-else class="project-grid">
-      <div v-for="project in projects" :key="project.id" class="project-card">
+      <div v-for="s in stats" :key="s.project.id" class="project-card">
+        <!-- 标题行：项目名 + 语言 + 来源标签 -->
         <div class="project-header">
-          <div class="project-name">{{ project.name }}</div>
-          <span class="lang-badge">{{ getLangName(project.language) }}</span>
+          <div class="project-title">
+            <h3 class="project-name">{{ s.project.name }}</h3>
+            <div class="title-tags">
+              <span class="lang-badge">{{ getLangName(s.project.language) }}</span>
+              <span v-if="s.project.repoUrl" class="src-badge git" title="Git 仓库项目">🌿 Git</span>
+              <span v-else class="src-badge local" title="本地路径项目">📁 本地</span>
+            </div>
+          </div>
+          <button class="btn-icon-menu" @click="toggleMenu(s.project.id)" title="更多操作">⋯</button>
         </div>
-        <div class="project-path">{{ project.path }}</div>
-        <div class="project-meta">
-          <span>创建: {{ formatDate(project.createdAt) }}</span>
+
+        <!-- 路径 / Git 信息 -->
+        <div class="project-info">
+          <div class="info-row" :title="s.project.path">
+            <span class="info-icon">📂</span>
+            <span class="info-text mono">{{ s.project.path || '(未配置路径)' }}</span>
+          </div>
+          <div v-if="s.project.repoBranch" class="info-row">
+            <span class="info-icon">🌿</span>
+            <span class="info-text">{{ s.project.repoBranch }}</span>
+            <span v-if="s.headCommit" class="commit-tag" :title="s.headSubject">
+              {{ s.headCommit }}
+            </span>
+          </div>
+          <div v-if="s.headSubject" class="info-row" :title="s.headSubject">
+            <span class="info-icon">💬</span>
+            <span class="info-text commit-subject">{{ s.headSubject }}</span>
+          </div>
         </div>
+
+        <!-- 构建状态条 -->
+        <div class="build-strip">
+          <template v-if="s.lastBuild">
+            <span class="status-pill" :class="s.lastBuild.status">
+              {{ statusIcon(s.lastBuild.status) }} {{ statusText(s.lastBuild.status) }}
+            </span>
+            <span class="build-meta">
+              <span class="mono">{{ s.lastBuild.imageName }}:{{ s.lastBuild.imageTag }}</span>
+              <span class="dot-sep">·</span>
+              <span :title="formatDate(s.lastBuild.startedAt)">{{ relativeTime(s.lastBuild.startedAt) }}</span>
+              <template v-if="s.lastBuild.finishedAt">
+                <span class="dot-sep">·</span>
+                <span>{{ calcDuration(s.lastBuild.startedAt, s.lastBuild.finishedAt) }}</span>
+              </template>
+            </span>
+          </template>
+          <template v-else>
+            <span class="status-pill never">⏳ 从未构建</span>
+          </template>
+          <span class="build-count" v-if="s.buildCount > 0">{{ s.buildCount }} 次构建</span>
+        </div>
+
+        <!-- 主操作 + 折叠菜单 -->
         <div class="project-actions">
-          <button class="btn-small" @click="buildProject(project)">构建</button>
-          <button class="btn-small btn-secondary" @click="deployProject(project)">部署</button>
-          <button class="btn-small btn-outline" @click="showHistory(project)">历史</button>
-          <button class="btn-small btn-outline" @click="editProject(project)">编辑</button>
-          <button class="btn-small btn-danger" @click="deleteProject(project)">删除</button>
+          <button class="btn-primary-sm" @click="buildProject(s.project)">▶ 构建</button>
+          <button class="btn-outline-sm" @click="showHistory(s.project)">📊 历史</button>
+          <transition name="menu-fade">
+            <div v-if="openMenu === s.project.id" class="more-menu" @click.stop>
+              <button @click="deployProject(s.project); closeMenu()">🌐 部署</button>
+              <button @click="editProject(s.project); closeMenu()">✏️ 编辑</button>
+              <button class="danger" @click="deleteProject(s.project); closeMenu()">🗑 删除</button>
+            </div>
+          </transition>
         </div>
       </div>
     </div>
@@ -110,7 +161,7 @@
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ListProjects, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/handler/App'
+import { ListProjectsWithStats, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/handler/App'
 import { useConfirm } from '../composables/useConfirm'
 
 const { ask } = useConfirm()
@@ -121,12 +172,43 @@ interface Project {
   path: string
   language: string
   createdAt: string
+  repoUrl?: string
+  repoBranch?: string
+}
+
+interface BuildSummary {
+  id: string
+  projectId: string
+  imageName: string
+  imageTag: string
+  status: string
+  startedAt: string
+  finishedAt?: string
+}
+
+interface ProjectStats {
+  project: Project
+  lastBuild?: BuildSummary
+  buildCount: number
+  headCommit?: string
+  headSubject?: string
 }
 
 const router = useRouter()
 const loading = ref(false)
 const creating = ref(false)
 const updating = ref(false)
+const stats = ref<ProjectStats[]>([])
+const openMenu = ref<string | null>(null)
+
+function toggleMenu(id: string) {
+  openMenu.value = openMenu.value === id ? null : id
+}
+function closeMenu() {
+  openMenu.value = null
+}
+
+// 派生 projects 列表给原有 deleteProject 等函数复用
 const projects = ref<Project[]>([])
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
@@ -163,12 +245,65 @@ function formatDate(date: string) {
 async function refreshProjects() {
   loading.value = true
   try {
-    projects.value = await ListProjects()
+    const result = await ListProjectsWithStats()
+    stats.value = result || []
+    projects.value = stats.value.map(s => s.project)
   } catch (e) {
     console.error('Failed to load projects:', e)
     toast?.error('加载项目列表失败')
+    stats.value = []
+    projects.value = []
   }
   loading.value = false
+}
+
+// ---- 卡片显示辅助 ----
+
+function statusIcon(s: string): string {
+  switch (s) {
+    case 'success': return '✅'
+    case 'failed':  return '❌'
+    case 'building': return '⚙️'
+    default: return '·'
+  }
+}
+
+function statusText(s: string): string {
+  switch (s) {
+    case 'success':  return '成功'
+    case 'failed':   return '失败'
+    case 'building': return '构建中'
+    case 'pending':  return '排队'
+    default: return s
+  }
+}
+
+// 把 ISO 时间转人类相对时间："3 分钟前 / 2 小时前 / 5 天前"
+function relativeTime(iso: string): string {
+  if (!iso) return ''
+  const t = new Date(iso).getTime()
+  if (isNaN(t)) return iso
+  const diff = Date.now() - t
+  const sec = Math.floor(diff / 1000)
+  if (sec < 60) return '刚刚'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min} 分钟前`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr} 小时前`
+  const day = Math.floor(hr / 24)
+  if (day < 30) return `${day} 天前`
+  const mo = Math.floor(day / 30)
+  if (mo < 12) return `${mo} 个月前`
+  return `${Math.floor(mo / 12)} 年前`
+}
+
+function calcDuration(startISO: string, endISO: string): string {
+  const ms = new Date(endISO).getTime() - new Date(startISO).getTime()
+  if (isNaN(ms) || ms < 0) return ''
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return `用时 ${sec}s`
+  const min = Math.floor(sec / 60)
+  return `用时 ${min}m${sec % 60 ? `${sec % 60}s` : ''}`
 }
 
 async function createProject() {
@@ -500,6 +635,229 @@ onMounted(() => {
   border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
+}
+
+/* ---- 项目卡片 v2 ---- */
+
+.project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.project-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  transition: box-shadow 0.15s, transform 0.15s;
+  position: relative;
+}
+.project-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.project-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.project-title { flex: 1; min-width: 0; }
+.project-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 6px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title-tags {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.lang-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.src-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.src-badge.git   { background: var(--success-bg); color: var(--success-fg); }
+.src-badge.local { background: var(--info-bg);    color: var(--info-fg); }
+
+.btn-icon-menu {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.12s;
+}
+.btn-icon-menu:hover { background: var(--bg-primary); color: var(--text-primary); }
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.info-icon { font-size: 11px; flex-shrink: 0; }
+.info-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.info-text.mono {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.info-text.commit-subject {
+  color: var(--text-primary);
+  font-style: italic;
+}
+.commit-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  background: var(--bg-primary);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.build-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.status-pill {
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.status-pill.success  { background: var(--success-bg); color: var(--success-fg); }
+.status-pill.failed   { background: var(--danger-bg);  color: var(--danger-fg); }
+.status-pill.building { background: var(--warning-bg); color: var(--warning-fg); }
+.status-pill.never    { background: var(--bg-secondary); color: var(--text-muted); }
+.build-meta {
+  color: var(--text-secondary);
+  font-size: 11px;
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  flex: 1; min-width: 0;
+}
+.build-meta .mono {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+}
+.dot-sep { color: var(--text-muted); }
+.build-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.project-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+.btn-primary-sm {
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.btn-primary-sm:hover { transform: translateY(-1px); }
+.btn-outline-sm {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-outline-sm:hover {
+  border-color: var(--brand-start);
+  color: var(--brand-start);
+}
+
+.more-menu {
+  position: absolute;
+  top: -8px;
+  right: 0;
+  transform: translateY(-100%);
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 140px;
+  z-index: 10;
+}
+.more-menu button {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.more-menu button:hover { background: var(--bg-primary); }
+.more-menu button.danger { color: var(--danger-fg); }
+.more-menu button.danger:hover { background: var(--danger-bg); }
+
+.menu-fade-enter-active, .menu-fade-leave-active {
+  transition: opacity 0.1s, transform 0.12s;
+}
+.menu-fade-enter-from, .menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-95%);
 }
 
 /* ---- Gitea 导入弹窗 ---- */

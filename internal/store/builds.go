@@ -132,6 +132,37 @@ func loadBuildLog(logPath, legacy string) string {
 	return string(data)
 }
 
+// LatestBuildRecord 取某项目最近一条构建记录（不含 log），用于项目卡片摘要。
+// 不存在返回 (BuildRecord{}, ErrNotFound)。
+func LatestBuildRecord(projectID string) (BuildRecord, error) {
+	var r BuildRecord
+	var finishedAt sql.NullTime
+	err := DB.QueryRow(
+		`SELECT id, project_id, image_name, image_tag, status, log_size, started_at, finished_at
+		 FROM build_records WHERE project_id=?
+		 ORDER BY started_at DESC LIMIT 1`, projectID,
+	).Scan(&r.ID, &r.ProjectID, &r.ImageName, &r.ImageTag, &r.Status, &r.LogSize, &r.StartedAt, &finishedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return BuildRecord{}, ErrNotFound
+	}
+	if err != nil {
+		return BuildRecord{}, fmt.Errorf("latest build record %s: %w", projectID, err)
+	}
+	if finishedAt.Valid {
+		r.FinishedAt = &finishedAt.Time
+	}
+	return r, nil
+}
+
+// CountBuildRecords 该项目历史构建数（含进行中）。
+func CountBuildRecords(projectID string) (int, error) {
+	var n int
+	if err := DB.QueryRow(`SELECT COUNT(*) FROM build_records WHERE project_id=?`, projectID).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count build records %s: %w", projectID, err)
+	}
+	return n, nil
+}
+
 // ListBuildRecords 列出某项目最近的构建记录；不含 log 内容，仅带 LogSize 方便前端提示。
 func ListBuildRecords(projectID string) ([]BuildRecord, error) {
 	rows, err := DB.Query(

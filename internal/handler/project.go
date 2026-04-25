@@ -5,12 +5,42 @@ import (
 	"fmt"
 	"strings"
 
+	"flowci/internal/git"
 	"flowci/internal/store"
 )
 
 // ListProjects 列出全部项目，按 updated_at DESC 排序。
 func (a *App) ListProjects() ([]store.Project, error) {
 	return store.ListProjects()
+}
+
+// ListProjectsWithStats 一次返回所有项目 + 摘要（最近构建、构建数、Git HEAD）。
+// 比前端逐项目调 ListBuildRecords + git log 高效，避免 N+1。
+// Git HEAD 信息只对有 RepoURL 且本地 path 存在的项目尝试取，失败静默。
+func (a *App) ListProjectsWithStats() ([]ProjectStats, error) {
+	projects, err := store.ListProjects()
+	if err != nil {
+		return nil, err
+	}
+	stats := make([]ProjectStats, 0, len(projects))
+	for _, p := range projects {
+		s := ProjectStats{Project: p}
+
+		if last, err := store.LatestBuildRecord(p.ID); err == nil {
+			s.LastBuild = &last
+		}
+		if n, err := store.CountBuildRecords(p.ID); err == nil {
+			s.BuildCount = n
+		}
+		if p.RepoURL != "" && p.Path != "" {
+			if sha, subj, err := git.HeadCommit(a.ctx, p.Path); err == nil {
+				s.HeadCommit = sha
+				s.HeadSubject = subj
+			}
+		}
+		stats = append(stats, s)
+	}
+	return stats, nil
 }
 
 // CreateProject 新建项目。必填：name、path。
