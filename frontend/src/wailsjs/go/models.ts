@@ -283,6 +283,38 @@ export namespace handler {
 	        this.pullLatest = source["pullLatest"];
 	    }
 	}
+	export class BuildSummaryStats {
+	    success: number;
+	    failed: number;
+	    building: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BuildSummaryStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.failed = source["failed"];
+	        this.building = source["building"];
+	    }
+	}
+	export class ContainerStats {
+	    total: number;
+	    running: number;
+	    stopped: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ContainerStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total = source["total"];
+	        this.running = source["running"];
+	        this.stopped = source["stopped"];
+	    }
+	}
 	export class CreatePipelineRequest {
 	    projectId: string;
 	    name: string;
@@ -334,6 +366,50 @@ export namespace handler {
 	        this.path = source["path"];
 	        this.language = source["language"];
 	    }
+	}
+	export class DashboardStats {
+	    projects: number;
+	    gitProjects: number;
+	    pipelines: number;
+	    containers: ContainerStats;
+	    images: number;
+	    docker: docker.Status;
+	    recentBuilds: store.BuildRecord[];
+	    buildSummary: BuildSummaryStats;
+	
+	    static createFrom(source: any = {}) {
+	        return new DashboardStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.projects = source["projects"];
+	        this.gitProjects = source["gitProjects"];
+	        this.pipelines = source["pipelines"];
+	        this.containers = this.convertValues(source["containers"], ContainerStats);
+	        this.images = source["images"];
+	        this.docker = this.convertValues(source["docker"], docker.Status);
+	        this.recentBuilds = this.convertValues(source["recentBuilds"], store.BuildRecord);
+	        this.buildSummary = this.convertValues(source["buildSummary"], BuildSummaryStats);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class DeployContainerRequest {
 	    image: string;
@@ -584,6 +660,44 @@ export namespace handler {
 	        this.language = source["language"];
 	        this.displayName = source["displayName"];
 	    }
+	}
+	export class ProjectStats {
+	    project: store.Project;
+	    lastBuild?: store.BuildRecord;
+	    buildCount: number;
+	    headCommit?: string;
+	    headSubject?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.project = this.convertValues(source["project"], store.Project);
+	        this.lastBuild = this.convertValues(source["lastBuild"], store.BuildRecord);
+	        this.buildCount = source["buildCount"];
+	        this.headCommit = source["headCommit"];
+	        this.headSubject = source["headSubject"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class PushImageRequest {
 	    image: string;

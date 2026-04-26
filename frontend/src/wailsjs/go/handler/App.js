@@ -74,6 +74,10 @@ export function GetContainerLogs(arg1, arg2) {
   return window['go']['handler']['App']['GetContainerLogs'](arg1, arg2);
 }
 
+export function GetDashboardStats() {
+  return window['go']['handler']['App']['GetDashboardStats']();
+}
+
 export function GetGiteaStatus() {
   return window['go']['handler']['App']['GetGiteaStatus']();
 }
@@ -120,6 +124,10 @@ export function ListPipelines(arg1) {
 
 export function ListProjects() {
   return window['go']['handler']['App']['ListProjects']();
+}
+
+export function ListProjectsWithStats() {
+  return window['go']['handler']['App']['ListProjectsWithStats']();
 }
 
 export function PullProjectRepo(arg1) {

@@ -44,6 +44,8 @@ export function GetBuildRecord(arg1:string):Promise<store.BuildRecord>;
 
 export function GetContainerLogs(arg1:string,arg2:number):Promise<string>;
 
+export function GetDashboardStats():Promise<handler.DashboardStats>;
+
 export function GetGiteaStatus():Promise<handler.GiteaStatusResponse>;
 
 export function GetSettings():Promise<Record<string, string>>;
@@ -67,6 +69,8 @@ export function ListImages():Promise<Array<docker.Image>>;
 export function ListPipelines(arg1:string):Promise<Array<store.Pipeline>>;
 
 export function ListProjects():Promise<Array<store.Project>>;
+
+export function ListProjectsWithStats():Promise<Array<handler.ProjectStats>>;
 
 export function PullProjectRepo(arg1:string):Promise<void>;
 
