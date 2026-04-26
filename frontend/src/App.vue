@@ -18,7 +18,13 @@
         </router-link>
       </nav>
       <div class="sidebar-footer">
-        <button class="theme-toggle" :title="themeTooltip" @click="toggleTheme">
+        <button
+          class="footer-btn"
+          :class="{ active: alwaysOnTop }"
+          :title="alwaysOnTop ? '取消窗口置顶' : '窗口始终置顶'"
+          @click="toggleAlwaysOnTop"
+        >📌</button>
+        <button class="footer-btn" :title="themeTooltip" @click="toggleTheme">
           {{ themeIcon }}
         </button>
       </div>
@@ -38,11 +44,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, provide } from 'vue'
+import { computed, onMounted, provide, ref } from 'vue'
 import ToastHost from './components/ToastHost.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import { useSettings } from './composables/useSettings'
 import { useToast } from './composables/useToast'
+import { SetWindowAlwaysOnTop, GetWindowAlwaysOnTop } from './wailsjs/go/handler/App'
 
 // 为已存在的 view（仍然用 inject('toast') / inject('theme')）提供兼容适配。
 // 新代码应直接 import { useToast } / { useSettings } 而非 inject。
@@ -88,9 +95,26 @@ function toggleTheme() {
   void setTheme(next)
 }
 
+// 窗口始终置顶切换
+const alwaysOnTop = ref(false)
+async function loadAlwaysOnTop() {
+  try { alwaysOnTop.value = await GetWindowAlwaysOnTop() } catch { /* ignore */ }
+}
+async function toggleAlwaysOnTop() {
+  const next = !alwaysOnTop.value
+  try {
+    await SetWindowAlwaysOnTop(next)
+    alwaysOnTop.value = next
+    toast.info(next ? '窗口已置顶' : '已取消窗口置顶')
+  } catch (e) {
+    toast.error(`切换失败: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
 onMounted(() => {
   void load()
   watchSystemTheme()
+  void loadAlwaysOnTop()
 })
 </script>
 
@@ -176,9 +200,10 @@ onMounted(() => {
   padding: var(--space-3) var(--space-5);
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-2);
 }
 
-.theme-toggle {
+.footer-btn {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
@@ -189,9 +214,12 @@ onMounted(() => {
   cursor: pointer;
   transition: background var(--transition-fast), transform var(--transition-fast);
 }
-.theme-toggle:hover {
+.footer-btn:hover {
   background: rgba(255, 255, 255, 0.12);
-  transform: rotate(15deg);
+}
+.footer-btn.active {
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  box-shadow: 0 0 12px var(--brand-soft);
 }
 
 .content {

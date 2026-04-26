@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"path/filepath"
 
+	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"flowci/internal/docker"
 	"flowci/internal/pipeline"
 	"flowci/internal/store"
@@ -46,11 +48,16 @@ func (a *App) Startup(ctx context.Context) {
 	}
 	slog.Info("data directory", "path", a.dataDir)
 
-	// 从 settings 表加载持久化的 docker host 配置（远程 daemon 场景）
+	// 从 settings 表加载运行时配置
 	if settings, err := store.GetSettings(); err == nil {
 		if host := settings["dockerHost"]; host != "" {
 			docker.SetDockerHost(host)
 			slog.Info("docker host from settings", "host", host)
+		}
+		// 恢复"窗口始终置顶"状态
+		if settings[settingWindowAlwaysOnTop] == "true" {
+			wruntime.WindowSetAlwaysOnTop(ctx, true)
+			slog.Info("window always on top restored")
 		}
 	}
 }
