@@ -121,7 +121,12 @@
         还没有任何构建记录。去 <router-link to="/build">构建</router-link> 触发一次吧。
       </div>
       <div v-else class="recent-list">
-        <div v-for="b in stats.recentBuilds" :key="b.id" class="recent-item">
+        <router-link
+          v-for="b in stats.recentBuilds"
+          :key="b.id"
+          :to="{ path: '/build-detail', query: { recordId: b.id } }"
+          class="recent-item"
+        >
           <span class="status-pill" :class="b.status">
             {{ statusIcon(b.status) }}
           </span>
@@ -132,7 +137,8 @@
           <span class="recent-duration" v-if="b.finished_at || b.finishedAt">
             {{ calcDuration(b.started_at || b.startedAt, b.finished_at || b.finishedAt) }}
           </span>
-        </div>
+          <span class="recent-arrow">›</span>
+        </router-link>
       </div>
     </div>
   </div>
@@ -462,8 +468,22 @@ h1 { font-size: 28px; margin: 0; color: var(--text-primary); }
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   transition: background 0.12s;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 .recent-item:hover { background: var(--bg-primary); }
+.recent-arrow {
+  color: var(--text-muted);
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: transform 0.15s, color 0.15s;
+}
+.recent-item:hover .recent-arrow {
+  color: var(--brand-start);
+  transform: translateX(2px);
+}
 .status-pill {
   font-size: 12px;
   width: 28px;

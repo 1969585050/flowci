@@ -1,10 +1,10 @@
 <template>
   <div id="app-shell">
     <aside class="sidebar">
-      <div class="logo">
+      <router-link to="/dashboard" class="logo" title="返回仪表盘">
         <span class="logo-icon">🚀</span>
         <span class="logo-text">FlowCI</span>
-      </div>
+      </router-link>
       <nav class="nav">
         <router-link
           v-for="item in navItems"
@@ -118,7 +118,11 @@ onMounted(() => {
   gap: var(--space-3);
   font-size: var(--text-2xl);
   font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
 }
+.logo:hover { opacity: 0.85; }
 
 .logo-icon {
   font-size: 30px;
