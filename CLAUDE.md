@@ -126,12 +126,21 @@ wails generate module            # Go struct → TS types 同步
 
 ## 5. 分支策略
 
-> 与全局 `~/.claude/CLAUDE.md` 的 m1/m1-front 两仓策略 **不同**，本仓规模小、人手单：
+> 2026-04-27 起改为 **dev 日常开发 + main 发版** 的双分支模型。
 
-- **单主干**：直接在 `main` 上小步提交
-- **大改动**：开短命 feature 分支（`feat/xxx`），合回 main 删分支
-- **推送前**：`go test ./...` + `go build ./...` 必须通过
-- **commit message**：Conventional Commits 格式，中文描述
+| 分支 | 角色 | 谁写 |
+|------|------|------|
+| `dev` | **唯一日常开发分支**，所有 feat / fix / chore 直接 commit | 所有开发 |
+| `main` | 发版分支，由 dev 合并而来 + 打 tag | 发版时 |
+
+**硬规则**：
+
+- ❌ 不新建 feature 分支（即使是大改动，直接 dev 上小粒度 commit）
+- ❌ 不直接改 main（改 dev 再合并过来）
+- ✅ 新会话 / 新机器开工：`git checkout dev && git pull origin dev --ff-only`
+- ✅ 推送前：`go test ./...` + `go build ./...` 必须通过
+- ✅ dev → main：UAT/烟测通过后 `git checkout main && git merge dev --no-ff` + 打 tag
+- ✅ commit message：Conventional Commits 格式，中文描述
 
 ---
 
