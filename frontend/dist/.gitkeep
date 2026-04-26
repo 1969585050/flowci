@@ -1,0 +1,3 @@
+# 保留 frontend/dist/ 目录存在
+# main.go 的 //go:embed all:frontend/dist 需要目录存在才能编译
+# 本目录的 build 产物由 wails build / wails dev 生成，已 .gitignore
