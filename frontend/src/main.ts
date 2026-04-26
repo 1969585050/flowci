@@ -4,6 +4,8 @@ import App from './App.vue'
 
 // 全局主题变量（必须在任何组件样式之前加载）
 import './styles/theme.css'
+// 通用组件 class（.btn / .card / .badge / .table-row）
+import './styles/components.css'
 
 import ProjectsView from './views/ProjectsView.vue'
 import BuildView from './views/BuildView.vue'

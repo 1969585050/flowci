@@ -2,7 +2,7 @@
   <div class="titlebar" @dblclick="onTitleBarDblClick">
     <!-- 左侧 logo / 标题（点击回 dashboard） -->
     <router-link to="/dashboard" class="title-brand" @click.stop>
-      <span class="brand-icon">🚀</span>
+      <Rocket class="brand-icon" :size="14" :stroke-width="2" />
       <span class="brand-name">FlowCI</span>
     </router-link>
 
@@ -16,21 +16,18 @@
         :class="{ active: alwaysOnTop }"
         :title="alwaysOnTop ? '取消窗口置顶' : '窗口始终置顶'"
         @click="onTogglePin"
-      >📌</button>
+      >
+        <Pin :size="13" :stroke-width="1.75" />
+      </button>
       <button class="ti-btn" title="最小化" @click="onMinimise">
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor" stroke-width="1.2"/></svg>
+        <Minus :size="13" :stroke-width="1.75" />
       </button>
       <button class="ti-btn" title="最大化 / 还原" @click="onToggleMax">
-        <!-- 还原 vs 最大化 SVG -->
-        <svg v-if="isMax" width="10" height="10" viewBox="0 0 10 10">
-          <path d="M2 0v2H0v8h8V8h2V0H2zm5 9H1V3h6v6zm2-2H8V2H3V1h6v6z" fill="currentColor"/>
-        </svg>
-        <svg v-else width="10" height="10" viewBox="0 0 10 10">
-          <rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor"/>
-        </svg>
+        <Minimize2 v-if="isMax" :size="12" :stroke-width="1.75" />
+        <Maximize2 v-else :size="11" :stroke-width="1.75" />
       </button>
       <button class="ti-btn close-btn" title="关闭" @click="onClose">
-        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.2"/></svg>
+        <X :size="13" :stroke-width="1.75" />
       </button>
     </div>
   </div>
@@ -38,6 +35,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted, onUnmounted } from 'vue'
+import { Rocket, Pin, Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
 import {
   WindowMinimise, WindowToggleMaximise, WindowIsMaximised, QuitApp,
   SetWindowAlwaysOnTop, GetWindowAlwaysOnTop,
@@ -73,7 +71,6 @@ async function onMinimise() {
 async function onToggleMax() {
   try {
     await WindowToggleMaximise()
-    // 给 webview 一点时间反映新状态
     setTimeout(refreshState, 50)
   } catch (e) {
     console.error(e)
@@ -85,17 +82,14 @@ async function onClose() {
 }
 
 async function onTitleBarDblClick(e: MouseEvent) {
-  // 点到按钮区不切换最大化
   const target = e.target as HTMLElement
   if (target.closest('.title-actions, .title-brand')) return
   await onToggleMax()
 }
 
-// 监听窗口最大化状态变化（用户拖窗口 / 系统手势）
 let pollHandle: number | undefined
 onMounted(() => {
   void refreshState()
-  // wails runtime 没有 onResize 事件直接订阅；轮询低频检查
   pollHandle = window.setInterval(refreshState, 1500)
 })
 onUnmounted(() => {
@@ -109,37 +103,36 @@ onUnmounted(() => {
   align-items: stretch;
   height: 36px;
   background: var(--bg-sidebar);
-  color: #fff;
+  border-bottom: 1px solid var(--border-sidebar);
+  color: var(--text-titlebar);
   user-select: none;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 
 /* 左侧 logo */
 .title-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 14px;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
   text-decoration: none;
-  color: #fff;
+  color: var(--text-titlebar);
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background var(--transition-fast);
 }
-.title-brand:hover { background: rgba(255, 255, 255, 0.06); }
-.brand-icon { font-size: 14px; }
+.title-brand:hover { background: var(--bg-titlebar-hover); }
+.brand-icon { color: var(--brand-500); }
 .brand-name {
-  font-weight: 600;
-  background: linear-gradient(90deg, var(--brand-start), var(--brand-end));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-weight: var(--weight-semibold);
+  color: var(--brand-500);
+  letter-spacing: 0.02em;
 }
 
 /* 中间拖拽 */
 .drag-zone {
   flex: 1;
-  -webkit-app-region: drag;  /* 双保险：另一种 wails 拖拽语法 */
+  -webkit-app-region: drag;
 }
 
 /* 右侧按钮 */
@@ -152,26 +145,27 @@ onUnmounted(() => {
   width: 46px;
   background: transparent;
   border: none;
-  color: #cbd5e1;
+  color: var(--text-titlebar-icon);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--transition-fast), color var(--transition-fast);
   -webkit-app-region: no-drag;
 }
 .ti-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--bg-titlebar-hover);
+  color: var(--text-titlebar);
 }
 .ti-btn.pin-btn.active {
-  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
-  color: #fff;
-  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.4);
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+}
+.ti-btn.pin-btn.active:hover {
+  background: var(--brand-600);
 }
 .ti-btn.close-btn:hover {
-  background: #e81123;  /* Windows 标准关闭红 */
-  color: #fff;
+  background: #e81123;
+  color: #ffffff;
 }
 </style>

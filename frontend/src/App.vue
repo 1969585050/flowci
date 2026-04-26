@@ -13,13 +13,13 @@
             class="nav-item"
             active-class="active"
           >
-            <span class="nav-icon">{{ item.icon }}</span>
+            <component :is="item.icon" class="nav-icon" :size="18" :stroke-width="1.75" />
             <span>{{ item.label }}</span>
           </router-link>
         </nav>
         <div class="sidebar-footer">
           <button class="footer-btn" :title="themeTooltip" @click="toggleTheme">
-            {{ themeIcon }}
+            <component :is="themeIcon" :size="16" :stroke-width="1.75" />
           </button>
         </div>
       </aside>
@@ -40,6 +40,11 @@
 
 <script setup lang="ts">
 import { computed, onMounted, provide } from 'vue'
+import {
+  LayoutDashboard, Package, GitBranch, Hammer, Workflow,
+  Rocket, Layers, Upload, Settings,
+  Sun, Moon, Monitor,
+} from 'lucide-vue-next'
 import TitleBar from './components/TitleBar.vue'
 import ToastHost from './components/ToastHost.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
@@ -56,15 +61,15 @@ provide('toast', {
 })
 
 const navItems = [
-  { to: '/dashboard', icon: '🏠', label: '仪表盘' },
-  { to: '/projects', icon: '📦', label: '项目' },
-  { to: '/repositories', icon: '🌿', label: '仓库源' },
-  { to: '/build', icon: '🔨', label: '构建' },
-  { to: '/pipelines', icon: '🔧', label: '流水线' },
-  { to: '/deploy', icon: '🌐', label: '部署' },
-  { to: '/images', icon: '🗃️', label: '镜像' },
-  { to: '/push', icon: '📤', label: '推送' },
-  { to: '/settings', icon: '⚙️', label: '设置' },
+  { to: '/dashboard',    icon: LayoutDashboard, label: '仪表盘' },
+  { to: '/projects',     icon: Package,         label: '项目' },
+  { to: '/repositories', icon: GitBranch,       label: '仓库源' },
+  { to: '/build',        icon: Hammer,          label: '构建' },
+  { to: '/pipelines',    icon: Workflow,        label: '流水线' },
+  { to: '/deploy',       icon: Rocket,          label: '部署' },
+  { to: '/images',       icon: Layers,          label: '镜像' },
+  { to: '/push',         icon: Upload,          label: '推送' },
+  { to: '/settings',     icon: Settings,        label: '设置' },
 ] as const
 
 const { theme, isDark, load, setTheme, watchSystemTheme } = useSettings()
@@ -76,8 +81,8 @@ provide('theme', {
 })
 
 const themeIcon = computed(() => {
-  if (theme.value === 'system') return '🖥'
-  return isDark.value ? '🌙' : '☀️'
+  if (theme.value === 'system') return Monitor
+  return isDark.value ? Moon : Sun
 })
 const themeTooltip = computed(() => `主题：${theme.value}（点击切换）`)
 
@@ -110,7 +115,7 @@ onMounted(() => {
   width: 220px;
   flex-shrink: 0;
   background: var(--bg-sidebar);
-  color: #fff;
+  border-right: 1px solid var(--border-sidebar);
   display: flex;
   flex-direction: column;
   padding: var(--space-5) 0;
@@ -127,53 +132,61 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-2) var(--space-4);
   margin: 0 var(--space-2);
   border-radius: var(--radius-md);
   color: var(--text-nav);
   text-decoration: none;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  font-size: var(--text-base);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
   cursor: pointer;
 }
 .nav-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-titlebar-hover);
   color: var(--text-nav-hover);
 }
 .nav-item.active {
   background: var(--bg-nav-active);
   color: var(--text-nav-active);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .nav-icon {
-  font-size: var(--text-xl);
-  width: 24px;
-  text-align: center;
+  flex-shrink: 0;
 }
 
 .sidebar-footer {
-  padding: var(--space-3) var(--space-5);
+  padding: var(--space-3) var(--space-4);
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
 }
 .footer-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.06);
-  border: none;
-  color: #fff;
-  font-size: var(--text-lg);
+  background: transparent;
+  border: 1px solid var(--border-sidebar);
+  color: var(--text-nav);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 .footer-btn:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--bg-titlebar-hover);
+  color: var(--text-nav-hover);
 }
 
 .content {
   flex: 1;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   padding: var(--space-6);
 }
 

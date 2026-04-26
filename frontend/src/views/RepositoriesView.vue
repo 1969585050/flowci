@@ -113,9 +113,9 @@
       </section>
 
       <!-- 仓库列表区 -->
-      <section v-if="giteaStatus?.hasToken" class="repos-pane">
+      <section v-if="giteaStatus?.hasToken" ref="reposPaneRef" class="repos-pane">
         <!-- 工具栏 -->
-        <div class="repos-toolbar">
+        <div ref="toolbarRef" class="repos-toolbar">
           <input
             v-model="repoState.search"
             type="text"
@@ -151,7 +151,8 @@
         </div>
 
         <div v-else-if="repoState.scanned" class="repos-tree">
-          <div v-for="group in groupedRepos" :key="group.owner" class="org-block">
+          <template v-for="group in groupedRepos" :key="group.owner">
+            <!-- Flat: org-row 直接挂 .repos-tree，跟下方 repo-row 共享 containing block，sticky 自然接力 -->
             <div class="org-row" @click="toggleGroup(group.owner)">
               <span class="org-arrow" :class="{ collapsed: !isExpanded(group.owner) }">▾</span>
               <span class="org-name">{{ group.owner }}</span>
@@ -164,8 +165,8 @@
               </button>
             </div>
 
-            <ul v-if="isExpanded(group.owner)" class="repo-rows">
-              <li
+            <template v-if="isExpanded(group.owner)">
+              <div
                 v-for="r in group.repos"
                 :key="r.fullName"
                 class="repo-row"
@@ -182,9 +183,9 @@
                 <span class="repo-branch mono">{{ r.defaultBranch }}</span>
                 <span v-if="r.private" class="repo-priv">🔒</span>
                 <span class="repo-desc">{{ r.description || '—' }}</span>
-              </li>
-            </ul>
-          </div>
+              </div>
+            </template>
+          </template>
         </div>
 
         <!-- 导入结果（覆盖在底部 above sticky bar） -->
@@ -231,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, computed, onMounted, watch } from 'vue'
+import { ref, inject, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   GetGiteaStatus, SaveGiteaConfig, VerifyGitea,
@@ -467,9 +468,44 @@ function goToProjects() {
 
 watch(verifyError, (v) => { if (v) configCollapsed.value = false })
 
+// ---- 动态测量 toolbar 高度，更新 --toolbar-h CSS var（驱动 org-row sticky top）----
+const reposPaneRef = ref<HTMLElement | null>(null)
+const toolbarRef = ref<HTMLElement | null>(null)
+let toolbarObserver: ResizeObserver | null = null
+
+function syncToolbarHeight() {
+  if (!toolbarRef.value || !reposPaneRef.value) return
+  // 用 getBoundingClientRect (亚像素精度) + Math.ceil 向上取整，避免 sticky 子元素出现 1px 缝隙
+  const h = Math.ceil(toolbarRef.value.getBoundingClientRect().height)
+  reposPaneRef.value.style.setProperty('--toolbar-h', `${h}px`)
+}
+
+async function ensureToolbarObserver() {
+  // 等下一帧确保 toolbar DOM 已挂载（toolbar 渲染依赖 v-if hasToken）
+  await new Promise<void>(r => requestAnimationFrame(() => r()))
+  if (!toolbarRef.value || toolbarObserver) return
+  toolbarObserver = new ResizeObserver(syncToolbarHeight)
+  toolbarObserver.observe(toolbarRef.value)
+  syncToolbarHeight()
+}
+
+function teardownToolbarObserver() {
+  toolbarObserver?.disconnect()
+  toolbarObserver = null
+}
+
 onMounted(async () => {
   await loadGiteaStatus()
   await autoScanIfConfigured()
+  await ensureToolbarObserver()
+})
+
+onUnmounted(teardownToolbarObserver)
+
+// 当 hasToken 变化导致 toolbar 出现/消失，重新挂/拆 observer
+watch(() => giteaStatus.value?.hasToken, (has) => {
+  if (has) ensureToolbarObserver()
+  else teardownToolbarObserver()
 })
 </script>
 
@@ -477,7 +513,10 @@ onMounted(async () => {
 .repos-view {
   max-width: 1400px;
   margin: 0 auto;
-  padding-bottom: 80px; /* 给 sticky bar 留位 */
+}
+/* 仅当 sticky bar 出现（选中 ≥1 个仓库）时给底部留位，避免无谓空白 */
+.repos-view:has(.sticky-bar) {
+  padding-bottom: 80px;
 }
 
 /* === 顶部 head === */
@@ -487,7 +526,7 @@ onMounted(async () => {
   align-items: flex-end;
   flex-wrap: wrap;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 .page-head h1 {
   font-size: 26px;
@@ -546,7 +585,8 @@ onMounted(async () => {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
+  max-width: 1200px;
   transition: padding 0.2s;
 }
 .config-card.compact { padding: 0; }
@@ -556,7 +596,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: 8px 20px;
   gap: 16px;
 }
 .config-line {
@@ -752,15 +792,24 @@ onMounted(async () => {
   background: var(--card-bg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  /* 紧凑左对齐：大屏下不撑满，避免每行 metadata 被推到极右 */
+  max-width: 1200px;
+  /* NOTE: 不能用 overflow: hidden — 会让内部 sticky toolbar/org-row 失效 */
 }
 .repos-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 20px;
+  padding: 8px 20px;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary);
+  /* 顶部圆角匹配 .repos-pane（去掉 overflow:hidden 后需要自己 clip） */
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  /* Sticky 第一层：负 top 抵消 main.content 的 padding-top:24，
+     让 toolbar 真正贴 viewport 顶部，不再透出滚动内容 */
+  position: sticky;
+  top: calc(-1 * var(--space-6));
+  z-index: 11;
 }
 .search-input {
   flex: 1;
@@ -780,14 +829,8 @@ onMounted(async () => {
 }
 
 .repos-tree {
-  max-height: 60vh;
-  overflow-y: auto;
+  /* Flat — 所有 .org-row 跟 .repo-row 在此层平铺，共享 containing block 实现 sticky 接力 */
 }
-
-.org-block {
-  border-bottom: 1px solid var(--border-color);
-}
-.org-block:last-child { border-bottom: none; }
 
 .org-row {
   display: flex;
@@ -798,9 +841,14 @@ onMounted(async () => {
   cursor: pointer;
   user-select: none;
   font-size: 13px;
+  /* Sticky 第二层：top = 抵消 main.content padding + 动态 toolbar 高度
+     --toolbar-h 由 ResizeObserver 在 onMounted 时写入 .repos-pane */
   position: sticky;
-  top: 0;
-  z-index: 1;
+  top: calc(-1 * var(--space-6) + var(--toolbar-h, 49px));
+  z-index: 10;
+}
+.org-row:not(:first-child) {
+  border-top: 1px solid var(--border-color);
 }
 .org-row:hover { background: var(--brand-soft); }
 .org-arrow {
@@ -833,14 +881,10 @@ onMounted(async () => {
 }
 .org-action { margin-left: auto; }
 
-.repo-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
 .repo-row {
   display: grid;
-  grid-template-columns: 24px minmax(120px, 1.4fr) 80px 22px 1fr;
+  /* checkbox | name(180-320) | branch | lock | desc(剩余, 但不超 480) */
+  grid-template-columns: 24px minmax(180px, 320px) auto auto minmax(0, 480px);
   align-items: center;
   gap: 12px;
   padding: 8px 20px 8px 32px;

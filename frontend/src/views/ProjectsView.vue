@@ -2,9 +2,15 @@
   <div class="projects-view">
     <div class="header">
       <h1>项目列表</h1>
-      <div style="display: flex; gap: 12px;">
-        <button class="btn-outline" @click="goToRepositories">🌿 从仓库源导入</button>
-        <button class="btn-primary" @click="showCreateDialog = true">+ 新建项目</button>
+      <div class="header-actions">
+        <button class="btn btn-secondary" @click="goToRepositories">
+          <GitBranch :size="14" :stroke-width="1.75" />
+          从仓库源导入
+        </button>
+        <button class="btn btn-primary" @click="showCreateDialog = true">
+          <Plus :size="14" :stroke-width="2" />
+          新建项目
+        </button>
       </div>
     </div>
 
@@ -21,42 +27,50 @@
     </div>
 
     <div v-else-if="projects.length === 0" class="empty-state">
-      <div class="empty-icon">📦</div>
+      <PackageOpen class="empty-icon" :size="56" :stroke-width="1.25" />
       <h3>暂无项目</h3>
       <p>点击右上角按钮创建你的第一个项目</p>
     </div>
 
     <div v-else class="project-grid">
-      <div v-for="s in stats" :key="s.project.id" class="project-card" :class="{ pinned: s.project.pinnedAt }">
-        <span v-if="s.project.pinnedAt" class="pin-mark" title="已置顶">📌</span>
+      <div v-for="s in stats" :key="s.project.id" class="card project-card" :class="{ 'card-pinned': s.project.pinnedAt }">
+        <span v-if="s.project.pinnedAt" class="pin-mark" title="已置顶">
+          <Pin :size="11" :stroke-width="2" />
+        </span>
         <!-- 标题行：项目名 + 语言 + 来源标签 -->
         <div class="project-header">
           <div class="project-title">
             <h3 class="project-name">{{ s.project.name }}</h3>
             <div class="title-tags">
-              <span class="lang-badge">{{ getLangName(s.project.language) }}</span>
-              <span v-if="s.project.repoUrl" class="src-badge git" title="Git 仓库项目">🌿 Git</span>
-              <span v-else class="src-badge local" title="本地路径项目">📁 本地</span>
+              <span class="badge badge-neutral">{{ getLangName(s.project.language) }}</span>
+              <span v-if="s.project.repoUrl" class="badge badge-success" title="Git 仓库项目">
+                <GitBranch :size="11" :stroke-width="2" /> Git
+              </span>
+              <span v-else class="badge badge-info" title="本地路径项目">
+                <Folder :size="11" :stroke-width="2" /> 本地
+              </span>
             </div>
           </div>
-          <button class="btn-icon-menu" @click="toggleMenu(s.project.id)" title="更多操作">⋯</button>
+          <button class="btn btn-icon" @click="toggleMenu(s.project.id)" title="更多操作">
+            <MoreHorizontal :size="16" :stroke-width="1.75" />
+          </button>
         </div>
 
         <!-- 路径 / Git 信息 -->
         <div class="project-info">
           <div class="info-row" :title="s.project.path">
-            <span class="info-icon">📂</span>
+            <FolderOpen class="info-icon" :size="12" :stroke-width="1.75" />
             <span class="info-text mono">{{ s.project.path || '(未配置路径)' }}</span>
           </div>
           <div v-if="s.project.repoBranch" class="info-row">
-            <span class="info-icon">🌿</span>
+            <GitBranch class="info-icon" :size="12" :stroke-width="1.75" />
             <span class="info-text">{{ s.project.repoBranch }}</span>
-            <span v-if="s.headCommit" class="commit-tag" :title="s.headSubject">
+            <span v-if="s.headCommit" class="badge badge-mono badge-neutral" :title="s.headSubject">
               {{ s.headCommit }}
             </span>
           </div>
           <div v-if="s.headSubject" class="info-row" :title="s.headSubject">
-            <span class="info-icon">💬</span>
+            <MessageSquareText class="info-icon" :size="12" :stroke-width="1.75" />
             <span class="info-text commit-subject">{{ s.headSubject }}</span>
           </div>
         </div>
@@ -64,8 +78,14 @@
         <!-- 构建状态条 -->
         <div class="build-strip">
           <template v-if="s.lastBuild">
-            <span class="status-pill" :class="s.lastBuild.status">
-              {{ statusIcon(s.lastBuild.status) }} {{ statusText(s.lastBuild.status) }}
+            <span class="badge" :class="statusBadgeClass(s.lastBuild.status)">
+              <component
+                :is="statusIconComp(s.lastBuild.status)"
+                :size="12"
+                :stroke-width="2"
+                :class="{ 'icon-spin': s.lastBuild.status === 'building' }"
+              />
+              {{ statusText(s.lastBuild.status) }}
             </span>
             <span class="build-meta">
               <span class="mono">{{ s.lastBuild.imageName }}:{{ s.lastBuild.imageTag }}</span>
@@ -78,22 +98,38 @@
             </span>
           </template>
           <template v-else>
-            <span class="status-pill never">⏳ 从未构建</span>
+            <span class="badge badge-neutral">
+              <Clock :size="11" :stroke-width="1.75" /> 从未构建
+            </span>
           </template>
           <span class="build-count" v-if="s.buildCount > 0">{{ s.buildCount }} 次构建</span>
         </div>
 
         <!-- 主操作 + 折叠菜单 -->
         <div class="project-actions">
-          <button class="btn-primary-sm" @click="buildProject(s.project)">▶ 构建</button>
-          <button class="btn-outline-sm" @click="showHistory(s.project)">📊 历史</button>
+          <button class="btn btn-primary btn-sm" @click="buildProject(s.project)">
+            <Play :size="12" :stroke-width="2" /> 构建
+          </button>
+          <button class="btn btn-secondary btn-sm" @click="showHistory(s.project)">
+            <History :size="12" :stroke-width="1.75" /> 历史
+          </button>
           <transition name="menu-fade">
             <div v-if="openMenu === s.project.id" class="more-menu" @click.stop>
-              <button v-if="s.project.pinnedAt" @click="togglePin(s.project, false); closeMenu()">📍 取消置顶</button>
-              <button v-else @click="togglePin(s.project, true); closeMenu()">📌 置顶</button>
-              <button @click="deployProject(s.project); closeMenu()">🌐 部署</button>
-              <button @click="editProject(s.project); closeMenu()">✏️ 编辑</button>
-              <button class="danger" @click="deleteProject(s.project); closeMenu()">🗑 删除</button>
+              <button v-if="s.project.pinnedAt" @click="togglePin(s.project, false); closeMenu()">
+                <PinOff :size="13" :stroke-width="1.75" /> 取消置顶
+              </button>
+              <button v-else @click="togglePin(s.project, true); closeMenu()">
+                <Pin :size="13" :stroke-width="1.75" /> 置顶
+              </button>
+              <button @click="deployProject(s.project); closeMenu()">
+                <Rocket :size="13" :stroke-width="1.75" /> 部署
+              </button>
+              <button @click="editProject(s.project); closeMenu()">
+                <Pencil :size="13" :stroke-width="1.75" /> 编辑
+              </button>
+              <button class="danger" @click="deleteProject(s.project); closeMenu()">
+                <Trash2 :size="13" :stroke-width="1.75" /> 删除
+              </button>
             </div>
           </transition>
         </div>
@@ -105,15 +141,15 @@
         <h2>新建项目</h2>
         <div class="form-group">
           <label>项目名称</label>
-          <input v-model="newProject.name" type="text" placeholder="my-project" />
+          <input class="input" v-model="newProject.name" type="text" placeholder="my-project" />
         </div>
         <div class="form-group">
           <label>项目路径</label>
-          <input v-model="newProject.path" type="text" placeholder="/workspace/my-project" />
+          <input class="input" v-model="newProject.path" type="text" placeholder="/workspace/my-project" />
         </div>
         <div class="form-group">
           <label>语言/框架</label>
-          <select v-model="newProject.language">
+          <select class="select" v-model="newProject.language">
             <option value="nodejs">Node.js</option>
             <option value="go">Go</option>
             <option value="python">Python</option>
@@ -127,8 +163,8 @@
           </select>
         </div>
         <div class="modal-actions">
-          <button class="btn-cancel" @click="showCreateDialog = false">取消</button>
-          <button class="btn-primary" @click="createProject" :disabled="creating">创建</button>
+          <button class="btn btn-secondary" @click="showCreateDialog = false">取消</button>
+          <button class="btn btn-primary" @click="createProject" :disabled="creating">创建</button>
         </div>
       </div>
     </div>
@@ -138,15 +174,15 @@
         <h2>编辑项目</h2>
         <div class="form-group">
           <label>项目名称</label>
-          <input v-model="editForm.name" type="text" placeholder="my-project" />
+          <input class="input" v-model="editForm.name" type="text" placeholder="my-project" />
         </div>
         <div class="form-group">
           <label>项目路径</label>
-          <input v-model="editForm.path" type="text" placeholder="/workspace/my-project" />
+          <input class="input" v-model="editForm.path" type="text" placeholder="/workspace/my-project" />
         </div>
         <div class="form-group">
           <label>语言/框架</label>
-          <select v-model="editForm.language">
+          <select class="select" v-model="editForm.language">
             <option value="nodejs">Node.js</option>
             <option value="go">Go</option>
             <option value="python">Python</option>
@@ -160,8 +196,8 @@
           </select>
         </div>
         <div class="modal-actions">
-          <button class="btn-cancel" @click="showEditDialog = false">取消</button>
-          <button class="btn-primary" @click="updateProject" :disabled="updating">保存</button>
+          <button class="btn btn-secondary" @click="showEditDialog = false">取消</button>
+          <button class="btn btn-primary" @click="updateProject" :disabled="updating">保存</button>
         </div>
       </div>
     </div>
@@ -169,8 +205,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onMounted } from 'vue'
+import { ref, inject, onMounted, type Component } from 'vue'
 import { useRouter } from 'vue-router'
+import {
+  Plus, GitBranch, Folder, MoreHorizontal, FolderOpen, MessageSquareText,
+  Play, History, Pin, PinOff, Rocket, Pencil, Trash2, PackageOpen,
+  CheckCircle2, XCircle, Loader2, Clock, Circle,
+} from 'lucide-vue-next'
 import { ListProjectsWithStats, CreateProject, DeleteProject, UpdateProject, PinProject, UnpinProject } from '../wailsjs/go/handler/App'
 import { useConfirm } from '../composables/useConfirm'
 
@@ -282,12 +323,13 @@ async function refreshProjects() {
 
 // ---- 卡片显示辅助 ----
 
-function statusIcon(s: string): string {
+function statusIconComp(s: string): Component {
   switch (s) {
-    case 'success': return '✅'
-    case 'failed':  return '❌'
-    case 'building': return '⚙️'
-    default: return '·'
+    case 'success':  return CheckCircle2
+    case 'failed':   return XCircle
+    case 'building': return Loader2
+    case 'pending':  return Clock
+    default:         return Circle
   }
 }
 
@@ -298,6 +340,16 @@ function statusText(s: string): string {
     case 'building': return '构建中'
     case 'pending':  return '排队'
     default: return s
+  }
+}
+
+function statusBadgeClass(s: string): string {
+  switch (s) {
+    case 'success':  return 'badge-success'
+    case 'failed':   return 'badge-danger'
+    case 'building': return 'badge-warning'
+    case 'pending':  return 'badge-info'
+    default:         return 'badge-neutral'
   }
 }
 
@@ -418,6 +470,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ---- Page header ---- */
 .projects-view {
   max-width: 1200px;
 }
@@ -426,346 +479,108 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
-
 .header h1 {
-  font-size: 28px;
-  color: var(--text-primary, #1a1a2e);
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.header-actions {
+  display: flex;
+  gap: var(--space-3);
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.loading, .empty-state {
+/* ---- Empty state ---- */
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  gap: 16px;
+  padding: 80px var(--space-5);
+  gap: var(--space-4);
 }
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid var(--border-color, #e0e0e0);
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.empty-icon { color: var(--text-muted); }
+.empty-state h3 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
 }
+.empty-state p { color: var(--text-muted); }
 
-@keyframes spin {
+/* ---- Icon spin animation (used by Loader2 for "building" status) ---- */
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
+@keyframes icon-spin {
   to { transform: rotate(360deg); }
 }
 
-.empty-icon {
-  font-size: 64px;
-}
-
-.empty-state h3 {
-  font-size: 20px;
-  color: var(--text-secondary, #666);
-}
-
-.empty-state p {
-  color: var(--text-secondary, #999);
-}
-
-.project-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-}
-
-.project-card {
-  background: var(--card-bg, white);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
-  transition: all 0.2s;
-}
-
-.project-card:hover {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  transform: translateY(-2px);
-}
-
-.project-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.project-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
-}
-
-.lang-badge {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-}
-
-.project-path {
-  color: var(--text-secondary, #666);
-  font-size: 13px;
-  margin-bottom: 12px;
-}
-
-.project-meta {
-  color: var(--text-secondary, #999);
-  font-size: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-color, #eee);
-}
-
-.project-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-small {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.btn-secondary {
-  background: var(--bg-primary, #f0f0f0);
-  color: var(--text-primary, #333);
-}
-
-.btn-danger {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.btn-danger:hover {
-  background: #fecaca;
-}
-
-.btn-outline {
-  background: var(--card-bg, white);
-  color: #667eea;
-  border: 1.5px solid #667eea;
-}
-
-.btn-outline:hover {
-  background: rgba(102, 126, 234, 0.05);
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal {
-  background: var(--card-bg, white);
-  border-radius: 16px;
-  padding: 32px;
-  width: 480px;
-  max-width: 90vw;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-}
-
-.modal h2 {
-  font-size: 22px;
-  color: var(--text-primary, #1a1a2e);
-  margin-bottom: 24px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary, #333);
-}
-
-.form-group input,
-.form-group select {
-  padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  font-size: 14px;
-  background: var(--card-bg, white);
-  color: var(--text-primary, #333);
-  transition: border-color 0.2s;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.btn-cancel {
-  background: var(--bg-primary, #f0f0f0);
-  color: var(--text-primary, #333);
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-/* ---- 项目卡片 v2 ---- */
-
-.project-card.pinned {
-  border-color: var(--brand-start);
-  box-shadow: 0 0 0 1px var(--brand-start), var(--shadow-sm);
-}
-.pin-mark {
-  position: absolute;
-  top: -8px;
-  left: 14px;
-  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
-  color: #fff;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  box-shadow: var(--shadow-sm);
-  z-index: 1;
-  letter-spacing: 0.5px;
-}
-
+/* ---- Project grid ---- */
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
+  gap: var(--space-4);
 }
 
+/* ---- Project card (extends .card from components.css) ---- */
 .project-card {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
-  transition: box-shadow 0.15s, transform 0.15s;
-  position: relative;
+  padding: var(--space-4) var(--space-5);
 }
-.project-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+
+.pin-mark {
+  position: absolute;
+  top: -8px;
+  left: var(--space-4);
+  background: var(--brand-500);
+  color: var(--text-on-brand);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  z-index: 1;
+  box-shadow: var(--shadow-sm);
 }
 
 .project-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 .project-title { flex: 1; min-width: 0; }
 .project-name {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
-  margin: 0 0 6px 0;
+  margin: 0 0 var(--space-1) 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .title-tags {
-  display: flex; gap: 6px; flex-wrap: wrap;
+  display: flex; gap: var(--space-1); flex-wrap: wrap;
 }
-.lang-badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--bg-primary);
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-.src-badge {
-  font-size: 10px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-.src-badge.git   { background: var(--success-bg); color: var(--success-fg); }
-.src-badge.local { background: var(--info-bg);    color: var(--info-fg); }
-
-.btn-icon-menu {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 18px;
-  cursor: pointer;
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.12s;
-}
-.btn-icon-menu:hover { background: var(--bg-primary); color: var(--text-primary); }
 
 .project-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-  font-size: 12px;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 .info-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
 }
-.info-icon { font-size: 11px; flex-shrink: 0; }
+.info-icon { font-size: var(--text-xs); flex-shrink: 0; }
 .info-text {
   flex: 1;
   overflow: hidden;
@@ -773,288 +588,153 @@ onMounted(() => {
   white-space: nowrap;
 }
 .info-text.mono {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 .info-text.commit-subject {
   color: var(--text-primary);
   font-style: italic;
 }
-.commit-tag {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  background: var(--bg-primary);
-  padding: 1px 6px;
-  border-radius: 3px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
 
+/* ---- Build strip (sunken sub-panel) ---- */
 .build-strip {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  padding: 8px 10px;
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
-  margin-bottom: 12px;
-  font-size: 12px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
 }
-.status-pill {
-  font-weight: 600;
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 11px;
-  white-space: nowrap;
-}
-.status-pill.success  { background: var(--success-bg); color: var(--success-fg); }
-.status-pill.failed   { background: var(--danger-bg);  color: var(--danger-fg); }
-.status-pill.building { background: var(--warning-bg); color: var(--warning-fg); }
-.status-pill.never    { background: var(--bg-secondary); color: var(--text-muted); }
 .build-meta {
   color: var(--text-secondary);
-  font-size: 11px;
-  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  font-size: var(--text-xs);
+  display: flex; align-items: center; gap: var(--space-1); flex-wrap: wrap;
   flex: 1; min-width: 0;
 }
 .build-meta .mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   color: var(--text-primary);
 }
 .dot-sep { color: var(--text-muted); }
 .build-count {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
+/* ---- Actions row ---- */
 .project-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   position: relative;
 }
-.btn-primary-sm {
-  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
-  color: white;
-  border: none;
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-.btn-primary-sm:hover { transform: translateY(-1px); }
-.btn-outline-sm {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 5px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  cursor: pointer;
-}
-.btn-outline-sm:hover {
-  border-color: var(--brand-start);
-  color: var(--brand-start);
-}
 
+/* ---- More menu ---- */
 .more-menu {
   position: absolute;
   top: -8px;
   right: 0;
   transform: translateY(-100%);
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  padding: 4px;
+  padding: var(--space-1);
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 140px;
-  z-index: 10;
+  z-index: var(--z-dropdown);
 }
 .more-menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   background: transparent;
   border: none;
   text-align: left;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: var(--text-primary);
   cursor: pointer;
+  transition: background var(--transition-fast);
 }
-.more-menu button:hover { background: var(--bg-primary); }
+.more-menu button:hover { background: var(--bg-hover); }
 .more-menu button.danger { color: var(--danger-fg); }
 .more-menu button.danger:hover { background: var(--danger-bg); }
 
 .menu-fade-enter-active, .menu-fade-leave-active {
-  transition: opacity 0.1s, transform 0.12s;
+  transition: opacity var(--duration-fast), transform var(--duration-fast);
 }
 .menu-fade-enter-from, .menu-fade-leave-to {
   opacity: 0;
   transform: translateY(-95%);
 }
 
-/* ---- Gitea 导入弹窗 ---- */
-
-.modal-lg {
-  width: 720px !important;
-  max-width: 92vw;
-}
-
-.repo-toolbar {
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 12px 0;
+  justify-content: center;
+  z-index: var(--z-modal);
 }
-
-.repo-search {
-  flex: 1;
-  padding: 10px 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  font-size: 13px;
+.modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  width: 480px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-lg);
 }
-
-.repo-count {
-  font-size: 12px;
-  color: var(--text-secondary, #666);
-  margin-left: auto;
+.modal h2 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-6);
 }
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--brand-start, #667eea);
-  cursor: pointer;
-  font-size: 13px;
-}
-.btn-link:hover {
-  text-decoration: underline;
-}
-
-.repo-list {
-  max-height: 50vh;
-  overflow-y: auto;
-  border: 1px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-}
-
-.repo-item {
+.form-group {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
-  cursor: pointer;
-  transition: background 0.12s;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
-.repo-item:hover {
-  background: var(--bg-primary, #f9fafb);
+.form-group label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
 }
-.repo-item.selected {
-  background: var(--brand-soft, rgba(102, 126, 234, 0.08));
-}
-.repo-item input[type="checkbox"] {
-  margin-top: 4px;
-  cursor: pointer;
-}
-
-.repo-meta {
-  flex: 1;
-  min-width: 0;
-}
-
-.repo-name {
-  font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
-  font-size: 13px;
+.modal-actions {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
 }
 
-.repo-tag {
-  font-size: 10px;
-  font-weight: 500;
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-family: 'JetBrains Mono', monospace;
-}
-.repo-tag.private {
-  background: var(--warning-bg, #fffbeb);
-  color: var(--warning-fg, #92400e);
-}
-.repo-tag.branch {
-  background: var(--info-bg, #eff6ff);
-  color: var(--info-fg, #1e40af);
-}
-
-.repo-desc {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--text-muted, #94a3b8);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.spinner-sm {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-color);
-  border-top-color: var(--brand-start);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  display: inline-block;
-}
-
-.import-result {
-  margin-top: 12px;
-  padding: 10px 14px;
-  background: var(--bg-primary, #f5f7fa);
-  border-radius: 6px;
-}
-.error-list {
-  margin: 6px 0 0 24px;
-  padding: 0;
-  font-size: 12px;
-  color: var(--text-secondary, #666);
-}
-.error-list li {
-  margin-bottom: 3px;
-}
-.env-row {
-  display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px;
-}
-.env-row .dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-}
-.env-row.ok   .dot { background: #16a34a; }
-.env-row.fail .dot { background: #dc2626; }
-.env-row.warn .dot { background: #d97706; }
-.env-value { flex: 1; word-break: break-word; }
-
-/* skeleton 占位 */
+/* ---- Skeleton ---- */
 .skeleton-card { pointer-events: none; }
 .skel-row {
   background: linear-gradient(90deg,
-    var(--bg-primary) 0%,
-    var(--border-color) 50%,
-    var(--bg-primary) 100%);
+    var(--bg-sunken) 0%,
+    var(--border-subtle) 50%,
+    var(--bg-sunken) 100%);
   background-size: 200% 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   animation: shimmer 1.4s linear infinite;
 }
 @keyframes shimmer {
   0%   { background-position: 100% 0; }
   100% { background-position: -100% 0; }
 }
+
 </style>

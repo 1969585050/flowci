@@ -5,15 +5,16 @@
         <h1>仪表盘</h1>
         <p class="subtitle">{{ greeting }}，FlowCI 在你身边。</p>
       </div>
-      <button class="btn-outline" :disabled="loading" @click="refresh">
-        {{ loading ? '刷新中…' : '🔄 刷新' }}
+      <button class="btn btn-secondary btn-sm" :disabled="loading" @click="refresh">
+        <RefreshCw :size="13" :stroke-width="1.75" :class="{ 'icon-spin': loading }" />
+        {{ loading ? '刷新中…' : '刷新' }}
       </button>
     </div>
 
     <!-- KPI 大数字卡片 -->
     <div class="kpi-grid">
-      <router-link to="/projects" class="kpi-card">
-        <div class="kpi-icon">📦</div>
+      <router-link to="/projects" class="card card-interactive kpi-card">
+        <div class="kpi-icon"><Package :size="20" :stroke-width="1.75" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ stats?.projects ?? '-' }}</div>
           <div class="kpi-label">项目</div>
@@ -21,28 +22,28 @@
         </div>
       </router-link>
 
-      <router-link to="/pipelines" class="kpi-card">
-        <div class="kpi-icon">🔧</div>
+      <router-link to="/pipelines" class="card card-interactive kpi-card">
+        <div class="kpi-icon"><Workflow :size="20" :stroke-width="1.75" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ stats?.pipelines ?? '-' }}</div>
           <div class="kpi-label">流水线</div>
         </div>
       </router-link>
 
-      <router-link to="/deploy" class="kpi-card">
-        <div class="kpi-icon">🌐</div>
+      <router-link to="/deploy" class="card card-interactive kpi-card">
+        <div class="kpi-icon"><Boxes :size="20" :stroke-width="1.75" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ stats?.containers?.total ?? '-' }}</div>
           <div class="kpi-label">容器</div>
           <div v-if="stats?.containers" class="kpi-sub">
-            <span class="dot-running"></span>{{ stats.containers.running }} 运行
-            <span class="dot-stopped" style="margin-left: 8px;"></span>{{ stats.containers.stopped }} 停止
+            <span class="dot dot-running"></span>{{ stats.containers.running }} 运行
+            <span class="dot dot-stopped"></span>{{ stats.containers.stopped }} 停止
           </div>
         </div>
       </router-link>
 
-      <router-link to="/images" class="kpi-card">
-        <div class="kpi-icon">🗃️</div>
+      <router-link to="/images" class="card card-interactive kpi-card">
+        <div class="kpi-icon"><Layers :size="20" :stroke-width="1.75" /></div>
         <div class="kpi-body">
           <div class="kpi-value">{{ stats?.images ?? '-' }}</div>
           <div class="kpi-label">镜像</div>
@@ -52,25 +53,29 @@
 
     <div class="row-grid">
       <!-- Docker 状态卡 -->
-      <div class="card docker-card" :class="dockerClass">
+      <div class="card">
         <div class="card-head">
-          <h3>🐳 Docker 状态</h3>
+          <h3><Container :size="14" :stroke-width="1.75" /> Docker 状态</h3>
         </div>
         <div v-if="loading && !stats" class="skel-line lg"></div>
         <template v-else-if="stats?.docker?.connected">
-          <div class="docker-ok">
+          <div class="docker-row">
             <div class="docker-pulse"></div>
             <div>
-              <div class="docker-status">已连接</div>
-              <div class="docker-version">v{{ stats.docker.version }}</div>
+              <div class="docker-status">
+                <span class="badge badge-success badge-dot">已连接</span>
+              </div>
+              <div class="docker-version mono">v{{ stats.docker.version }}</div>
             </div>
           </div>
         </template>
         <template v-else>
-          <div class="docker-fail">
-            <div class="docker-icon">⚠️</div>
+          <div class="docker-row">
+            <AlertTriangle class="docker-warn-icon" :size="22" :stroke-width="1.75" />
             <div>
-              <div class="docker-status">未连接</div>
+              <div class="docker-status">
+                <span class="badge badge-danger">未连接</span>
+              </div>
               <router-link to="/settings" class="docker-link">前往 设置 → Docker 检查 →</router-link>
             </div>
           </div>
@@ -80,32 +85,40 @@
       <!-- 24h 构建摘要 -->
       <div class="card">
         <div class="card-head">
-          <h3>📊 最近 24 小时构建</h3>
+          <h3><BarChart3 :size="14" :stroke-width="1.75" /> 最近 24 小时构建</h3>
         </div>
         <div class="build-summary">
-          <div class="bs-item ok">
+          <div class="bs-item bs-success">
             <div class="bs-num">{{ stats?.buildSummary?.success ?? 0 }}</div>
-            <div class="bs-label">✅ 成功</div>
+            <div class="bs-label"><CheckCircle2 :size="11" :stroke-width="2" /> 成功</div>
           </div>
-          <div class="bs-item fail">
+          <div class="bs-item bs-failed">
             <div class="bs-num">{{ stats?.buildSummary?.failed ?? 0 }}</div>
-            <div class="bs-label">❌ 失败</div>
+            <div class="bs-label"><XCircle :size="11" :stroke-width="2" /> 失败</div>
           </div>
-          <div class="bs-item busy">
+          <div class="bs-item bs-building">
             <div class="bs-num">{{ stats?.buildSummary?.building ?? 0 }}</div>
-            <div class="bs-label">⚙️ 进行中</div>
+            <div class="bs-label"><Loader2 :size="11" :stroke-width="2" /> 进行中</div>
           </div>
         </div>
       </div>
 
       <!-- 快捷操作 -->
       <div class="card">
-        <div class="card-head"><h3>⚡ 快捷操作</h3></div>
+        <div class="card-head"><h3><Zap :size="14" :stroke-width="1.75" /> 快捷操作</h3></div>
         <div class="quick-actions">
-          <router-link to="/projects" class="qa-btn">+ 新建项目</router-link>
-          <router-link to="/repositories" class="qa-btn">🌿 从仓库源导入</router-link>
-          <router-link to="/build" class="qa-btn">🔨 触发构建</router-link>
-          <router-link to="/pipelines" class="qa-btn">🔧 管理流水线</router-link>
+          <router-link to="/projects" class="qa-btn">
+            <Plus :size="14" :stroke-width="1.75" /> 新建项目
+          </router-link>
+          <router-link to="/repositories" class="qa-btn">
+            <GitBranch :size="14" :stroke-width="1.75" /> 从仓库源导入
+          </router-link>
+          <router-link to="/build" class="qa-btn">
+            <Hammer :size="14" :stroke-width="1.75" /> 触发构建
+          </router-link>
+          <router-link to="/pipelines" class="qa-btn">
+            <Workflow :size="14" :stroke-width="1.75" /> 管理流水线
+          </router-link>
         </div>
       </div>
     </div>
@@ -113,7 +126,7 @@
     <!-- 最近构建活动 -->
     <div class="card">
       <div class="card-head">
-        <h3>🕒 最近构建</h3>
+        <h3><Clock :size="14" :stroke-width="1.75" /> 最近构建</h3>
         <router-link to="/build-history" class="card-link">查看全部 →</router-link>
       </div>
       <div v-if="loading && !stats" class="empty-hint">加载中…</div>
@@ -127,17 +140,22 @@
           :to="{ path: '/build-detail', query: { recordId: b.id } }"
           class="recent-item"
         >
-          <span class="status-pill" :class="b.status">
-            {{ statusIcon(b.status) }}
+          <span class="recent-status" :class="statusColorClass(b.status)">
+            <component
+              :is="statusIconComp(b.status)"
+              :size="14"
+              :stroke-width="2"
+              :class="{ 'icon-spin': b.status === 'building' }"
+            />
           </span>
           <div class="recent-meta">
-            <div class="recent-image">{{ b.image_name || b.imageName }}<span class="dim">:{{ b.image_tag || b.imageTag }}</span></div>
+            <div class="recent-image mono">{{ b.image_name || b.imageName }}<span class="dim">:{{ b.image_tag || b.imageTag }}</span></div>
             <div class="recent-time">{{ relativeTime(b.started_at || b.startedAt) }}</div>
           </div>
-          <span class="recent-duration" v-if="b.finished_at || b.finishedAt">
+          <span class="recent-duration mono" v-if="b.finished_at || b.finishedAt">
             {{ calcDuration(b.started_at || b.startedAt, b.finished_at || b.finishedAt) }}
           </span>
-          <span class="recent-arrow">›</span>
+          <ChevronRight class="recent-arrow" :size="16" :stroke-width="1.75" />
         </router-link>
       </div>
     </div>
@@ -145,7 +163,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, type Component } from 'vue'
+import {
+  Package, Workflow, Boxes, Layers, Container, AlertTriangle,
+  BarChart3, Zap, Clock, RefreshCw, Plus, GitBranch, Hammer,
+  CheckCircle2, XCircle, Loader2, Circle, ChevronRight,
+} from 'lucide-vue-next'
 import { GetDashboardStats } from '../wailsjs/go/handler/App'
 
 interface BuildItem {
@@ -181,8 +204,6 @@ const greeting = computed(() => {
   return '深夜了'
 })
 
-const dockerClass = computed(() => stats.value?.docker?.connected ? 'docker-up' : 'docker-down')
-
 async function refresh() {
   loading.value = true
   try {
@@ -193,12 +214,23 @@ async function refresh() {
   loading.value = false
 }
 
-function statusIcon(s: string): string {
+function statusIconComp(s: string): Component {
   switch (s) {
-    case 'success':  return '✅'
-    case 'failed':   return '❌'
-    case 'building': return '⚙️'
-    default: return '·'
+    case 'success':  return CheckCircle2
+    case 'failed':   return XCircle
+    case 'building': return Loader2
+    case 'pending':  return Clock
+    default:         return Circle
+  }
+}
+
+function statusColorClass(s: string): string {
+  switch (s) {
+    case 'success':  return 'status-success'
+    case 'failed':   return 'status-failed'
+    case 'building': return 'status-building'
+    case 'pending':  return 'status-info'
+    default:         return 'status-neutral'
   }
 }
 
@@ -238,140 +270,124 @@ onMounted(refresh)
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
-h1 { font-size: 28px; margin: 0; color: var(--text-primary); }
+h1 {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
 .subtitle {
-  margin: 6px 0 0 0;
+  margin: var(--space-1) 0 0 0;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 8px 14px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  cursor: pointer;
-}
-.btn-outline:hover:not(:disabled) {
-  border-color: var(--brand-start);
-  color: var(--brand-start);
-}
-.btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
-
-/* KPI cards */
+/* ---- KPI cards ---- */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 .kpi-card {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   text-decoration: none;
   color: inherit;
-  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
-}
-.kpi-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-  border-color: var(--brand-start);
 }
 .kpi-icon {
-  font-size: 36px;
-  width: 56px; height: 56px;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--brand-soft);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  color: var(--brand-500);
   flex-shrink: 0;
 }
 .kpi-value {
-  font-size: 28px;
-  font-weight: 700;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-semibold);
   color: var(--text-primary);
   line-height: 1;
+  letter-spacing: -0.02em;
 }
 .kpi-label {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-secondary);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .kpi-sub {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  margin-top: 4px;
-  display: flex; align-items: center;
+  margin-top: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
-.dot-running, .dot-stopped {
+.dot {
   display: inline-block;
-  width: 6px; height: 6px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  margin-right: 4px;
+  margin-right: 2px;
 }
+.dot + .dot { margin-left: var(--space-2); }
 .dot-running { background: var(--success-fg); }
 .dot-stopped { background: var(--text-muted); }
 
-/* row grid */
+/* ---- Row grid ---- */
 .row-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
-.card {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
-}
-
+/* ---- Card head ---- */
 .card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-4);
 }
 .card-head h3 {
-  font-size: 14px;
-  margin: 0;
-  color: var(--text-primary);
-}
-.card-link {
-  font-size: 12px;
-  color: var(--brand-start);
-  text-decoration: none;
-}
-.card-link:hover { text-decoration: underline; }
-
-/* docker card */
-.docker-card.docker-up {
-  border-left: 4px solid var(--success-fg);
-}
-.docker-card.docker-down {
-  border-left: 4px solid var(--danger-fg);
-}
-.docker-ok, .docker-fail {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+.card-head h3 :deep(svg) { color: var(--text-muted); }
+.card-link {
+  font-size: var(--text-sm);
+  color: var(--brand-500);
+  text-decoration: none;
+}
+.card-link:hover { color: var(--brand-600); text-decoration: underline; }
+
+/* ---- Docker card ---- */
+.docker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 .docker-pulse {
-  width: 14px; height: 14px;
+  width: 12px;
+  height: 12px;
   background: var(--success-fg);
   border-radius: 50%;
   position: relative;
+  flex-shrink: 0;
 }
 .docker-pulse::after {
   content: '';
@@ -383,140 +399,154 @@ h1 { font-size: 28px; margin: 0; color: var(--text-primary); }
   animation: pulse 1.6s ease-out infinite;
 }
 @keyframes pulse {
-  to { transform: scale(2.2); opacity: 0; }
+  to { transform: scale(2.4); opacity: 0; }
 }
-.docker-icon { font-size: 24px; }
+.docker-warn-icon {
+  color: var(--warning-fg);
+  flex-shrink: 0;
+}
 .docker-status {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
 }
 .docker-version {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 .docker-link {
-  font-size: 12px;
-  color: var(--brand-start);
+  font-size: var(--text-sm);
+  color: var(--brand-500);
   text-decoration: none;
-  margin-top: 4px;
+  margin-top: var(--space-1);
   display: inline-block;
 }
-.docker-link:hover { text-decoration: underline; }
+.docker-link:hover { color: var(--brand-600); text-decoration: underline; }
 
-/* build summary */
+/* ---- Build summary ---- */
 .build-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: var(--space-2);
   text-align: center;
 }
 .bs-item {
-  padding: 12px 6px;
+  padding: var(--space-3) var(--space-2);
   border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-subtle);
 }
-.bs-item.ok   { background: var(--success-bg); }
-.bs-item.fail { background: var(--danger-bg); }
-.bs-item.busy { background: var(--warning-bg); }
 .bs-num {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
   line-height: 1;
+  color: var(--text-primary);
 }
-.bs-item.ok   .bs-num { color: var(--success-fg); }
-.bs-item.fail .bs-num { color: var(--danger-fg); }
-.bs-item.busy .bs-num { color: var(--warning-fg); }
+.bs-item.bs-success .bs-num { color: var(--success-fg); }
+.bs-item.bs-failed  .bs-num { color: var(--danger-fg); }
+.bs-item.bs-building .bs-num { color: var(--warning-fg); }
 .bs-label {
-  font-size: 11px;
-  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
   color: var(--text-secondary);
 }
 
-/* quick actions */
+/* ---- Quick actions ---- */
 .quick-actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1);
 }
 .qa-btn {
-  display: block;
-  padding: 8px 12px;
-  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
   color: var(--text-primary);
   text-decoration: none;
   border-radius: var(--radius-sm);
-  font-size: 13px;
-  transition: background 0.12s;
+  font-size: var(--text-base);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 .qa-btn:hover {
-  background: var(--brand-soft);
-  color: var(--brand-start);
+  background: var(--bg-hover);
+  color: var(--brand-500);
 }
 
-/* recent builds */
+/* ---- Recent builds list ---- */
 .recent-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .recent-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  transition: background 0.12s;
+  transition: background var(--transition-fast);
   text-decoration: none;
   color: inherit;
   cursor: pointer;
 }
-.recent-item:hover { background: var(--bg-primary); }
-.recent-arrow {
-  color: var(--text-muted);
-  font-size: 18px;
+.recent-item:hover { background: var(--bg-hover); }
+.recent-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  margin-left: 4px;
-  transition: transform 0.15s, color 0.15s;
 }
-.recent-item:hover .recent-arrow {
-  color: var(--brand-start);
-  transform: translateX(2px);
-}
-.status-pill {
-  font-size: 12px;
-  width: 28px;
-  text-align: center;
-}
+.recent-status.status-success  { color: var(--success-fg); }
+.recent-status.status-failed   { color: var(--danger-fg); }
+.recent-status.status-building { color: var(--warning-fg); }
+.recent-status.status-info     { color: var(--info-fg); }
+.recent-status.status-neutral  { color: var(--text-muted); }
+
 .recent-meta { flex: 1; min-width: 0; }
 .recent-image {
-  font-size: 13px;
+  font-size: var(--text-base);
   color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .recent-image .dim { color: var(--text-muted); }
 .recent-time {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   margin-top: 2px;
 }
 .recent-duration {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
 }
+.recent-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform var(--transition-fast), color var(--transition-fast);
+}
+.recent-item:hover .recent-arrow {
+  color: var(--brand-500);
+  transform: translateX(2px);
+}
 
-/* skeleton */
+/* ---- Skeleton ---- */
 .skel-line {
   height: 18px;
-  background: linear-gradient(90deg, var(--bg-primary), var(--border-color), var(--bg-primary));
+  background: linear-gradient(90deg,
+    var(--bg-sunken),
+    var(--border-subtle),
+    var(--bg-sunken));
   background-size: 200% 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   animation: shimmer 1.4s linear infinite;
 }
 .skel-line.lg { height: 24px; width: 60%; }
@@ -527,12 +557,21 @@ h1 { font-size: 28px; margin: 0; color: var(--text-primary); }
 
 .empty-hint {
   text-align: center;
-  padding: 20px;
+  padding: var(--space-5);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-base);
 }
 .empty-hint a {
-  color: var(--brand-start);
+  color: var(--brand-500);
   text-decoration: none;
+}
+.empty-hint a:hover { text-decoration: underline; }
+
+/* ---- Icon spin animation ---- */
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
+@keyframes icon-spin {
+  to { transform: rotate(360deg); }
 }
 </style>
