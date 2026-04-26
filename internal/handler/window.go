@@ -28,3 +28,29 @@ func (a *App) GetWindowAlwaysOnTop() bool {
 	}
 	return settings[settingWindowAlwaysOnTop] == "true"
 }
+
+// ---- 窗口控制（自绘标题栏调用） ----
+
+// WindowMinimise 最小化到任务栏。
+func (a *App) WindowMinimise() {
+	runtime.WindowMinimise(a.ctx)
+}
+
+// WindowToggleMaximise 最大化 ⇄ 还原。
+func (a *App) WindowToggleMaximise() {
+	if runtime.WindowIsMaximised(a.ctx) {
+		runtime.WindowUnmaximise(a.ctx)
+	} else {
+		runtime.WindowMaximise(a.ctx)
+	}
+}
+
+// WindowIsMaximised 当前是否已最大化（前端切换图标 ⬜/❐ 用）。
+func (a *App) WindowIsMaximised() bool {
+	return runtime.WindowIsMaximised(a.ctx)
+}
+
+// QuitApp 关闭应用（标题栏 ✕ 按钮）。
+func (a *App) QuitApp() {
+	runtime.Quit(a.ctx)
+}

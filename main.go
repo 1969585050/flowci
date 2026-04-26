@@ -36,12 +36,14 @@ func main() {
 		Title:  "FlowCI",
 		Width:  1200,
 		Height: 800,
+		// Frameless: 去掉 Windows 系统标题栏，由前端 TitleBar.vue 自绘
+		// （含 logo + 拖拽区 + 📌 置顶 + — 最小化 + ⬜ 最大化 + ✕ 关闭）
+		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 255},
-		// dev 模式频繁 rebuild 时窗口会反复抢焦盖住 IDE；
-		// 启动时最小化到任务栏，需要时手动展开。
+		// dev 频繁 rebuild 时窗口反复抢焦盖住 IDE → 启动时最小化到任务栏
 		WindowStartState: options.Minimised,
 		OnStartup:        func(ctx context.Context) { app.Startup(ctx) },
 		OnShutdown:       func(ctx context.Context) { app.Shutdown(ctx) },
@@ -50,7 +52,8 @@ func main() {
 			WebviewIsTransparent:              false,
 			WindowIsTranslucent:               false,
 			DisableWindowIcon:                 false,
-			DisableFramelessWindowDecorations: false,
+			// Frameless 模式下让 webview 自己处理无边框装饰
+			DisableFramelessWindowDecorations: true,
 		},
 	})
 	if err != nil {
