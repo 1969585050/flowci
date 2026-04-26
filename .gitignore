@@ -25,6 +25,11 @@ frontend/dist/*
 
 # Wails
 build/
+# wails generate 自动产物，不入库（每次 wails dev / generate module 会重新生成）
+# 新克隆后第一次跑 wails dev 即可，详见 CLAUDE.md
+frontend/src/wailsjs/
+# wails CLI 内部缓存（检测 frontend/package.json 是否变化）
+frontend/package.json.md5
 
 # IDE
 .idea/

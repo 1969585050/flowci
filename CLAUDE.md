@@ -47,10 +47,24 @@
 
 ### 3.1 Wails 相关
 
-- `wailsjs/` 目录下所有 `.ts` / `.d.ts` 均自动生成，**严禁手改**
-- 改 Go DTO 后必须跑 `wails generate module`（或 `wails dev` 会自动触发）同步前端类型
+- `frontend/src/wailsjs/` 目录是 wails 自动生成的前端绑定，**已 .gitignore 不入库**
+  - 新克隆仓库后第一次跑 `wails dev` 会自动生成
+  - 改 Go DTO / handler 方法签名后再跑一次 `wails dev` 或 `wails generate module` 同步类型
+  - 严禁手改这个目录里的任何文件
+- `frontend/package.json.md5` 也是 wails CLI 内部缓存，已 .gitignore
 - `//go:embed all:frontend/dist` 是打包入口，frontend 必须先 `npm run build` 生成 `dist/` 才能 `wails build`
 - 生产打包用 `wails build -clean`，`npm run desktop`（package.json 里定义）等价
+
+#### 新机器 / 新克隆 onboarding
+
+```bash
+git clone <repo-url>
+cd flowci
+go mod tidy                       # 拉 Go 依赖
+wails dev                         # 第一次会 npm install + wails generate + 启动 vite + 打开 webview
+```
+
+`wails dev` 第一次启动可能需要 1-3 分钟（首次下载 webview2、npm install、Go 编译）。
 
 ### 3.2 Docker CLI exec 方式
 
