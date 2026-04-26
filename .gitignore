@@ -48,3 +48,6 @@ logs/
 
 # Misc
 .toke/
+
+# Trae IDE 配置（如果以后用别的 IDE 不再需要）
+.trae/
