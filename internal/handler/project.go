@@ -94,3 +94,31 @@ func (a *App) DeleteProject(id string) error {
 	}
 	return nil
 }
+
+// PinProject 把项目置顶到列表最前。
+func (a *App) PinProject(id string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("%w: id required", ErrBadRequest)
+	}
+	if err := store.PinProject(id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return ErrProjectNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+// UnpinProject 取消置顶。
+func (a *App) UnpinProject(id string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("%w: id required", ErrBadRequest)
+	}
+	if err := store.UnpinProject(id); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return ErrProjectNotFound
+		}
+		return err
+	}
+	return nil
+}

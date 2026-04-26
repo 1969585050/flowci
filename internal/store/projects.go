@@ -28,14 +28,16 @@ type UpdateProjectInput struct {
 	RepoBranch string `json:"repoBranch"`
 }
 
-// ListProjects 按 updated_at DESC 返回全部项目。
+// ListProjects 返回全部项目；置顶项目（pinned_at 非空）按 pinned_at DESC 在前，
+// 其余按 updated_at DESC。
 func ListProjects() ([]Project, error) {
 	if DB == nil {
 		return []Project{}, fmt.Errorf("database not initialized")
 	}
 	rows, err := DB.Query(
-		`SELECT id, name, path, language, repo_url, repo_branch, last_pull_at, created_at, updated_at
-		 FROM projects ORDER BY updated_at DESC`)
+		`SELECT id, name, path, language, repo_url, repo_branch, last_pull_at, pinned_at, created_at, updated_at
+		 FROM projects
+		 ORDER BY (pinned_at IS NULL), pinned_at DESC, updated_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
@@ -80,7 +82,7 @@ func CreateProject(input CreateProjectInput) (Project, error) {
 // GetProject 按 ID 查询；不存在返回 ErrNotFound。
 func GetProject(id string) (Project, error) {
 	row := DB.QueryRow(
-		`SELECT id, name, path, language, repo_url, repo_branch, last_pull_at, created_at, updated_at
+		`SELECT id, name, path, language, repo_url, repo_branch, last_pull_at, pinned_at, created_at, updated_at
 		 FROM projects WHERE id = ?`, id)
 	p, err := scanProject(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -90,6 +92,35 @@ func GetProject(id string) (Project, error) {
 		return Project{}, fmt.Errorf("get project %s: %w", id, err)
 	}
 	return p, nil
+}
+
+// PinProject 把项目标为置顶（pinned_at = now）。已置顶时刷新时间到顶部。
+func PinProject(id string) error {
+	result, err := DB.Exec(
+		`UPDATE projects SET pinned_at=? WHERE id=?`,
+		time.Now().UTC(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("pin project %s: %w", id, err)
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UnpinProject 取消置顶（pinned_at = NULL）。
+func UnpinProject(id string) error {
+	result, err := DB.Exec(`UPDATE projects SET pinned_at=NULL WHERE id=?`, id)
+	if err != nil {
+		return fmt.Errorf("unpin project %s: %w", id, err)
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // UpdateProject 更新项目；不存在返回 ErrNotFound。
@@ -148,12 +179,15 @@ type scanner interface {
 
 func scanProject(s scanner) (Project, error) {
 	var p Project
-	var lastPull sql.NullTime
-	if err := s.Scan(&p.ID, &p.Name, &p.Path, &p.Language, &p.RepoURL, &p.RepoBranch, &lastPull, &p.CreatedAt, &p.UpdatedAt); err != nil {
+	var lastPull, pinned sql.NullTime
+	if err := s.Scan(&p.ID, &p.Name, &p.Path, &p.Language, &p.RepoURL, &p.RepoBranch, &lastPull, &pinned, &p.CreatedAt, &p.UpdatedAt); err != nil {
 		return Project{}, err
 	}
 	if lastPull.Valid {
 		p.LastPullAt = &lastPull.Time
+	}
+	if pinned.Valid {
+		p.PinnedAt = &pinned.Time
 	}
 	return p, nil
 }

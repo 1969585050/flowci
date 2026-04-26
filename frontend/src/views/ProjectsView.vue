@@ -27,7 +27,8 @@
     </div>
 
     <div v-else class="project-grid">
-      <div v-for="s in stats" :key="s.project.id" class="project-card">
+      <div v-for="s in stats" :key="s.project.id" class="project-card" :class="{ pinned: s.project.pinnedAt }">
+        <span v-if="s.project.pinnedAt" class="pin-mark" title="已置顶">📌</span>
         <!-- 标题行：项目名 + 语言 + 来源标签 -->
         <div class="project-header">
           <div class="project-title">
@@ -88,6 +89,8 @@
           <button class="btn-outline-sm" @click="showHistory(s.project)">📊 历史</button>
           <transition name="menu-fade">
             <div v-if="openMenu === s.project.id" class="more-menu" @click.stop>
+              <button v-if="s.project.pinnedAt" @click="togglePin(s.project, false); closeMenu()">📍 取消置顶</button>
+              <button v-else @click="togglePin(s.project, true); closeMenu()">📌 置顶</button>
               <button @click="deployProject(s.project); closeMenu()">🌐 部署</button>
               <button @click="editProject(s.project); closeMenu()">✏️ 编辑</button>
               <button class="danger" @click="deleteProject(s.project); closeMenu()">🗑 删除</button>
@@ -168,7 +171,7 @@
 <script setup lang="ts">
 import { ref, inject, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ListProjectsWithStats, CreateProject, DeleteProject, UpdateProject } from '../wailsjs/go/handler/App'
+import { ListProjectsWithStats, CreateProject, DeleteProject, UpdateProject, PinProject, UnpinProject } from '../wailsjs/go/handler/App'
 import { useConfirm } from '../composables/useConfirm'
 
 const { ask } = useConfirm()
@@ -181,6 +184,7 @@ interface Project {
   createdAt: string
   repoUrl?: string
   repoBranch?: string
+  pinnedAt?: string | null
 }
 
 interface BuildSummary {
@@ -213,6 +217,18 @@ function toggleMenu(id: string) {
 }
 function closeMenu() {
   openMenu.value = null
+}
+
+async function togglePin(project: Project, pin: boolean) {
+  try {
+    if (pin) await PinProject(project.id)
+    else     await UnpinProject(project.id)
+    toast?.success(pin ? `${project.name} 已置顶` : `${project.name} 已取消置顶`)
+    await refreshProjects()
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    toast?.error(`${pin ? '置顶' : '取消置顶'}失败: ${msg}`)
+  }
 }
 
 // 派生 projects 列表给原有 deleteProject 等函数复用
@@ -645,6 +661,24 @@ onMounted(() => {
 }
 
 /* ---- 项目卡片 v2 ---- */
+
+.project-card.pinned {
+  border-color: var(--brand-start);
+  box-shadow: 0 0 0 1px var(--brand-start), var(--shadow-sm);
+}
+.pin-mark {
+  position: absolute;
+  top: -8px;
+  left: 14px;
+  background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm);
+  z-index: 1;
+  letter-spacing: 0.5px;
+}
 
 .project-grid {
   display: grid;
