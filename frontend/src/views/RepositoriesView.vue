@@ -1,40 +1,57 @@
 <template>
   <div class="repos-view">
-    <h1>仓库源</h1>
-    <p class="subtitle">配置 Git 托管平台凭证，自动扫描你的全部仓库并一键导入为 FlowCI 项目。</p>
-
-    <div class="layout">
-      <!-- 左侧 provider 列表 -->
-      <aside class="provider-tabs">
-        <div
+    <!-- 顶部：标题 + 横向 provider tab -->
+    <header class="page-head">
+      <div>
+        <h1>仓库源</h1>
+        <p class="subtitle">配置 Git 平台凭证 → 自动扫描全部仓库 → 勾选导入为 FlowCI 项目</p>
+      </div>
+      <div class="provider-tabs">
+        <button
           v-for="p in providers"
           :key="p.id"
-          class="provider-tab"
+          class="ptab"
           :class="{ active: activeProvider === p.id, disabled: !p.enabled }"
-          @click="p.enabled && (activeProvider = p.id)"
+          :disabled="!p.enabled"
+          @click="activeProvider = p.id"
         >
-          <div class="provider-icon">{{ p.icon }}</div>
-          <div class="provider-meta">
-            <div class="provider-name">{{ p.name }}</div>
-            <div class="provider-status">
-              <span v-if="!p.enabled" class="badge badge-muted">即将支持</span>
-              <span v-else-if="p.id === 'gitea' && giteaStatus?.hasToken" class="badge badge-ok">已配置</span>
-              <span v-else class="badge badge-warn">未配置</span>
-            </div>
+          <span class="ptab-icon">{{ p.icon }}</span>
+          <span class="ptab-name">{{ p.name }}</span>
+          <span v-if="!p.enabled" class="ptab-tag soon">即将支持</span>
+          <span v-else-if="p.id === 'gitea' && giteaStatus?.hasToken" class="ptab-tag ok">✓</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Gitea 主面板 -->
+    <main v-if="activeProvider === 'gitea'" class="provider-main">
+      <!-- 配置卡：未配置 → 展开表单；已配置 → 折叠为一行 summary -->
+      <section class="config-card" :class="{ compact: configCollapsed }">
+        <!-- 折叠态摘要 -->
+        <div v-if="configCollapsed" class="config-summary">
+          <div class="config-line">
+            <span class="provider-emoji">🦊</span>
+            <span class="config-url mono">{{ gitea.baseURL || '(未设置)' }}</span>
+            <span v-if="giteaUser?.username" class="config-user">
+              <span class="user-dot"></span>
+              {{ giteaUser.username }}
+            </span>
+            <span v-else class="config-user warn">
+              <span class="user-dot warn"></span>
+              已配置 token (未拉取用户名)
+            </span>
           </div>
+          <button class="btn-ghost" @click="configCollapsed = false">⚙ 修改配置</button>
         </div>
-      </aside>
 
-      <!-- 右侧 - Gitea 详细 -->
-      <section v-if="activeProvider === 'gitea'" class="provider-panel">
-        <!-- 配置区 -->
-        <div class="card">
-          <h3>🦊 Gitea 配置</h3>
-          <p class="hint" style="margin-top: 0;">
-            支持本地部署或线上 Gitea 实例。Token 存 OS keyring，不入库。
-          </p>
+        <!-- 展开态：完整配置表单 -->
+        <div v-else class="config-form">
+          <div class="config-form-head">
+            <h3>🦊 Gitea 配置</h3>
+            <button v-if="giteaStatus?.hasToken" class="btn-ghost" @click="configCollapsed = true">收起</button>
+          </div>
 
-          <div class="form-group">
+          <div class="form-row">
             <label>Gitea 实例 URL</label>
             <input
               v-model="gitea.baseURL"
@@ -43,45 +60,33 @@
             />
           </div>
 
-          <div class="form-group">
+          <div class="form-row">
             <label>
               Access Token
-              <span v-if="giteaStatus?.hasToken" class="badge badge-ok inline">✓ 已配置</span>
-              <span v-else class="badge badge-warn inline">未配置</span>
+              <span v-if="giteaStatus?.hasToken" class="ai-key-status">✓ 已配置</span>
+              <span v-else class="ai-key-status missing">未配置</span>
             </label>
             <input
               v-model="gitea.tokenInput"
               type="password"
-              :placeholder="giteaStatus?.hasToken ? '已保存（留空不修改；填新值覆盖）' : '从 Gitea 用户设置 → 应用 → 生成新令牌'"
+              :placeholder="giteaStatus?.hasToken ? '已保存（留空保留旧值；填新值覆盖）' : '从 Gitea 设置 → 应用 生成新令牌'"
             />
           </div>
 
-          <details class="gitea-help" open>
+          <details class="token-help" :open="!giteaStatus?.hasToken">
             <summary>📘 如何生成 Token？</summary>
             <ol>
-              <li>登录你的 Gitea 实例</li>
-              <li>右上角头像 → <strong>设置</strong> → 左侧 <strong>应用</strong> 标签</li>
-              <li>"管理访问令牌"区域 → 输入名称（如 <code>FlowCI</code>）</li>
-              <li>
-                <strong>勾选权限 scope</strong>（Gitea 1.20+ 必填）：
-                <ul style="margin-top: 4px;">
-                  <li><code>repository</code> → <strong>Read</strong>（必选，列仓库 + clone）</li>
-                  <li><code>user</code> → <strong>Read</strong>（可选，FlowCI 显示你的用户名）</li>
-                </ul>
-              </li>
-              <li><strong>生成令牌</strong> → 复制显示的 token（只显示一次！）粘贴到上方</li>
-              <li>保存 → 验证连接</li>
+              <li>右上角头像 → <strong>设置</strong> → 左侧 <strong>应用</strong></li>
+              <li>"管理访问令牌" → 名称 <code>FlowCI</code></li>
+              <li>勾选 scope：<code>repository</code>=Read（必选）+ <code>user</code>=Read（可选）</li>
+              <li><strong>生成</strong> → 复制 token（只显示一次！）粘贴到上方</li>
             </ol>
-            <p style="margin: 6px 0 0 0; color: var(--warning-fg);">
-              ⚠ 旧 token 没勾 <code>repository</code> 或 <code>user</code> 时验证会报 HTTP 403；
-              重新生成 token 即可。
-            </p>
             <a v-if="giteaStatus?.tokenSettingsUrl" :href="giteaStatus.tokenSettingsUrl" target="_blank" rel="noopener" class="hint-link">
               🔗 直接打开 Token 设置页 →
             </a>
           </details>
 
-          <div style="display: flex; gap: 12px; margin-top: 16px;">
+          <div class="form-actions">
             <button class="btn-primary" @click="saveGitea" :disabled="savingGitea">
               {{ savingGitea ? '保存中…' : '保存配置' }}
             </button>
@@ -90,156 +95,143 @@
             </button>
           </div>
 
-          <div v-if="giteaUser" class="env-row ok" style="margin-top: 12px;">
-            <span class="dot"></span>
-            <span class="label">当前用户</span>
-            <span class="value">{{ giteaUser.username }} ({{ giteaUser.email || '无邮箱' }})</span>
-          </div>
-
-          <div v-if="verifyError" class="verify-error">
-            <div class="env-row fail" style="padding: 0;">
-              <span class="dot"></span>
-              <span class="value"><strong>验证失败</strong>：{{ verifyError }}</span>
-            </div>
-            <details class="verify-help">
+          <!-- 验证错误 inline alert -->
+          <div v-if="verifyError" class="alert error">
+            <div class="alert-head">❌ 验证失败：{{ verifyError }}</div>
+            <details class="alert-help">
               <summary>排查建议</summary>
               <ul>
-                <li><strong>HTTP 404</strong> → URL 应填 Gitea 根 (如 <code>http://192.168.3.128:3000</code>)，不要带 <code>/api/v1</code></li>
-                <li><strong>HTTP 401/403 / token invalid</strong> → token 错、过期，或权限缺 <code>read:repository</code></li>
-                <li><strong>unreachable / connection refused</strong> → URL 写错、Gitea 没启动、防火墙阻挡</li>
-                <li><strong>tls / x509</strong> → 自签名证书；改 <code>http://</code> 或在 Gitea 装可信证书</li>
-                <li>检查能否在浏览器里打开 <code>{{ gitea.baseURL || '<URL>' }}/api/v1/version</code></li>
+                <li><strong>HTTP 404</strong> → URL 应填 Gitea 根，不要带 <code>/api/v1</code></li>
+                <li><strong>401/403</strong> → token 错、过期，或缺 <code>repository=Read</code> scope</li>
+                <li><strong>connection refused</strong> → URL 写错 / Gitea 未启动 / 防火墙阻挡</li>
+                <li><strong>tls / x509</strong> → 自签名证书，改 <code>http://</code> 或装可信证书</li>
+                <li>浏览器打开 <code>{{ gitea.baseURL || '<URL>' }}/api/v1/version</code> 自查</li>
               </ul>
             </details>
           </div>
         </div>
+      </section>
 
-        <!-- 仓库扫描 + 导入 -->
-        <div v-if="giteaStatus?.hasToken" class="card">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <h3 style="margin: 0;">📚 你的仓库</h3>
-            <button class="btn-outline" @click="scanRepos" :disabled="repoState.loading">
-              {{ repoState.loading ? '扫描中…' : (repoState.scanned ? '🔄 重新扫描' : '🔍 扫描仓库') }}
-            </button>
+      <!-- 仓库列表区 -->
+      <section v-if="giteaStatus?.hasToken" class="repos-pane">
+        <!-- 工具栏 -->
+        <div class="repos-toolbar">
+          <input
+            v-model="repoState.search"
+            type="text"
+            class="search-input"
+            placeholder="🔍 搜索仓库名 / owner..."
+          />
+          <button class="btn-ghost" @click="scanRepos" :disabled="repoState.loading" title="重新扫描">
+            <span :class="{ spinning: repoState.loading }">🔄</span>
+            {{ repoState.loading ? '扫描中' : '刷新' }}
+          </button>
+          <span class="toolbar-stat">
+            <strong>{{ repoState.repos.length }}</strong> 个仓库 · 来自
+            <strong>{{ groupedRepos.length }}</strong> 个组织
+          </span>
+        </div>
+
+        <!-- 错误 -->
+        <div v-if="repoState.error" class="alert error">
+          <div class="alert-head">⚠ 扫描失败：{{ repoState.error }}</div>
+        </div>
+
+        <!-- 列表 -->
+        <div v-else-if="repoState.loading && !repoState.scanned" class="repos-skeleton">
+          <div v-for="i in 6" :key="i" class="skel-item">
+            <div class="skel checkbox-skel"></div>
+            <div class="skel name-skel"></div>
+            <div class="skel meta-skel"></div>
           </div>
+        </div>
 
-          <div v-if="repoState.error" class="env-row fail" style="margin-top: 16px;">
-            <span class="dot"></span>
-            <span class="value">{{ repoState.error }}</span>
-          </div>
+        <div v-else-if="repoState.scanned && repoState.repos.length === 0" class="empty">
+          <p>未找到任何仓库 — 检查 token 是否有 <code>repository=Read</code> 权限。</p>
+        </div>
 
-          <template v-else-if="repoState.scanned">
-            <div class="repo-toolbar">
-              <input
-                v-model="repoState.search"
-                type="text"
-                class="repo-search"
-                placeholder="🔍 搜索仓库名 / owner..."
-              />
-              <button class="btn-link" @click="toggleAll">
-                {{ allSelected ? '取消全选' : `全选 (${filteredRepos.length})` }}
+        <div v-else-if="repoState.scanned" class="repos-tree">
+          <div v-for="group in groupedRepos" :key="group.owner" class="org-block">
+            <div class="org-row" @click="toggleGroup(group.owner)">
+              <span class="org-arrow" :class="{ collapsed: !isExpanded(group.owner) }">▾</span>
+              <span class="org-name">{{ group.owner }}</span>
+              <span class="org-count">{{ group.repos.length }}</span>
+              <span v-if="group.selectedCount > 0" class="org-selected">
+                选中 {{ group.selectedCount }}
+              </span>
+              <button class="btn-link org-action" @click.stop="toggleGroupAll(group)">
+                {{ group.allSelected ? '取消全选' : '全选' }}
               </button>
-              <span class="repo-count">已选 <strong>{{ repoState.selected.size }}</strong> / {{ repoState.repos.length }}</span>
             </div>
 
-            <div class="repo-list" v-if="repoState.repos.length > 0">
-              <div v-for="group in groupedRepos" :key="group.owner" class="owner-group">
-                <div class="owner-header" @click="toggleGroup(group.owner)">
-                  <span class="owner-arrow" :class="{ collapsed: !isExpanded(group.owner) }">▾</span>
-                  <span class="owner-name">{{ group.owner }}</span>
-                  <span class="owner-count">{{ group.repos.length }} 个仓库</span>
-                  <span class="owner-selected" v-if="group.selectedCount > 0">
-                    已选 {{ group.selectedCount }}
-                  </span>
-                  <button
-                    class="btn-link owner-toggle-all"
-                    @click.stop="toggleGroupAll(group)"
-                  >
-                    {{ group.allSelected ? '取消全选' : '全选' }}
-                  </button>
-                </div>
-
-                <div v-if="isExpanded(group.owner)" class="owner-repos">
-                  <label
-                    v-for="r in group.repos"
-                    :key="r.fullName"
-                    class="repo-item"
-                    :class="{ selected: repoState.selected.has(r.fullName) }"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="repoState.selected.has(r.fullName)"
-                      @change="toggleRepo(r.fullName)"
-                    />
-                    <div class="repo-meta">
-                      <div class="repo-name">
-                        {{ repoShortName(r.fullName) }}
-                        <span v-if="r.private" class="repo-tag private">私有</span>
-                        <span class="repo-tag branch">{{ r.defaultBranch }}</span>
-                      </div>
-                      <div v-if="r.description" class="repo-desc">{{ r.description }}</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div v-else class="env-row" style="padding: 20px; justify-content: center;">
-              <span>未找到任何仓库（token 是否有 read:repository 权限？）</span>
-            </div>
-
-            <div v-if="repoState.importing" class="env-row" style="padding: 12px;">
-              <div class="spinner-sm"></div>
-              <span style="margin-left: 8px;">导入中…</span>
-            </div>
-
-            <div v-if="repoState.result" class="import-result">
-              <div v-if="repoState.result.imported.length" class="env-row ok">
-                <span class="dot"></span>
-                <span>成功导入 {{ repoState.result.imported.length }} 个：{{ repoState.result.imported.map(p => p.name).join(', ') }}</span>
-              </div>
-              <div v-if="repoState.result.errors?.length" class="env-row fail" style="margin-top: 6px;">
-                <span class="dot"></span>
-                <span>失败 {{ repoState.result.errors.length }} 个：</span>
-              </div>
-              <ul v-if="repoState.result.errors?.length" class="error-list">
-                <li v-for="e in repoState.result.errors" :key="e.fullName">
-                  <strong>{{ e.fullName }}</strong>: {{ e.error }}
-                </li>
-              </ul>
-            </div>
-
-            <div style="display: flex; gap: 12px; margin-top: 16px; justify-content: flex-end;">
-              <button
-                class="btn-primary"
-                :disabled="repoState.importing || repoState.selected.size === 0"
-                @click="confirmImport"
+            <ul v-if="isExpanded(group.owner)" class="repo-rows">
+              <li
+                v-for="r in group.repos"
+                :key="r.fullName"
+                class="repo-row"
+                :class="{ selected: repoState.selected.has(r.fullName) }"
+                @click="toggleRepo(r.fullName)"
               >
-                {{ repoState.importing ? '导入中…' : `导入选中 ${repoState.selected.size} 个` }}
-              </button>
-              <button class="btn-outline" @click="goToProjects">查看项目列表 →</button>
-            </div>
-          </template>
-
-          <div v-else-if="repoState.loading" class="env-row" style="padding: 20px; justify-content: center;">
-            <div class="spinner-sm"></div>
-            <span style="margin-left: 8px;">正在扫描你的仓库…</span>
+                <input
+                  type="checkbox"
+                  :checked="repoState.selected.has(r.fullName)"
+                  @click.stop
+                  @change="toggleRepo(r.fullName)"
+                />
+                <span class="repo-name">{{ repoShortName(r.fullName) }}</span>
+                <span class="repo-branch mono">{{ r.defaultBranch }}</span>
+                <span v-if="r.private" class="repo-priv">🔒</span>
+                <span class="repo-desc">{{ r.description || '—' }}</span>
+              </li>
+            </ul>
           </div>
         </div>
-      </section>
 
-      <!-- 占位面板（disabled providers） -->
-      <section v-else class="provider-panel">
-        <div class="card empty">
-          <p>{{ providerPlaceholder }}</p>
+        <!-- 导入结果（覆盖在底部 above sticky bar） -->
+        <div v-if="repoState.result" class="alert" :class="repoState.result.errors?.length ? 'mixed' : 'success'">
+          <div class="alert-head">
+            <template v-if="repoState.result.imported.length">
+              ✓ 成功导入 {{ repoState.result.imported.length }} 个
+            </template>
+            <template v-if="repoState.result.errors?.length">
+              · ✗ 失败 {{ repoState.result.errors.length }} 个
+            </template>
+          </div>
+          <ul v-if="repoState.result.errors?.length" class="alert-list">
+            <li v-for="e in repoState.result.errors" :key="e.fullName">
+              <code>{{ e.fullName }}</code>: {{ e.error }}
+            </li>
+          </ul>
+          <button class="btn-link" @click="repoState.result = null">关闭</button>
         </div>
       </section>
-    </div>
+
+      <!-- Sticky 底部操作栏 -->
+      <div v-if="giteaStatus?.hasToken && (repoState.selected.size > 0 || repoState.importing)" class="sticky-bar">
+        <div class="bar-info">
+          <strong>{{ repoState.selected.size }}</strong> 个仓库已选
+        </div>
+        <div class="bar-actions">
+          <button class="btn-ghost" @click="clearSelection" :disabled="repoState.importing">清除</button>
+          <button class="btn-primary" :disabled="repoState.importing || repoState.selected.size === 0" @click="confirmImport">
+            {{ repoState.importing ? '导入中…' : `📥 导入 ${repoState.selected.size} 个` }}
+          </button>
+          <button class="btn-outline" @click="goToProjects">项目列表 →</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- 占位 panel（disabled providers） -->
+    <main v-else class="provider-main">
+      <div class="empty-card">
+        {{ providerPlaceholder }}
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, inject, computed, onMounted } from 'vue'
+import { ref, inject, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   GetGiteaStatus, SaveGiteaConfig, VerifyGitea,
@@ -252,21 +244,19 @@ interface ProviderTab {
   icon: string
   enabled: boolean
 }
-
 const providers: ProviderTab[] = [
   { id: 'gitea',  name: 'Gitea',  icon: '🦊', enabled: true },
   { id: 'github', name: 'GitHub', icon: '🐙', enabled: false },
   { id: 'gitlab', name: 'GitLab', icon: '🦝', enabled: false },
 ]
 const activeProvider = ref<'gitea' | 'github' | 'gitlab'>('gitea')
-
 const providerPlaceholder = computed(() => {
   const p = providers.find(x => x.id === activeProvider.value)
   return p ? `${p.name} 集成正在路上，敬请期待。` : ''
 })
 
 const router = useRouter()
-const toast = inject('toast') as { success: (m: string) => void; error: (m: string) => void; info?: (m: string) => void }
+const toast = inject('toast') as { success: (m: string) => void; error: (m: string) => void; info?: (m: string) => void; warning?: (m: string) => void }
 
 // ---- Gitea ----
 
@@ -279,6 +269,7 @@ const giteaUser = ref<GiteaUser | null>(null)
 const savingGitea = ref(false)
 const verifying = ref(false)
 const verifyError = ref('')
+const configCollapsed = ref(false)  // 已配置 + 已 verify → 自动折叠
 
 interface GiteaRepo {
   name: string
@@ -313,7 +304,7 @@ const allSelected = computed(() => {
   return list.length > 0 && list.every(r => repoState.value.selected.has(r.fullName))
 })
 
-// 按 owner 分组（owner 取自 fullName 的第一段）
+// 按 owner 分组
 interface RepoGroup {
   owner: string
   repos: GiteaRepo[]
@@ -332,56 +323,55 @@ const groupedRepos = computed<RepoGroup[]>(() => {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([owner, repos]) => {
       const selectedCount = repos.filter(r => repoState.value.selected.has(r.fullName)).length
-      return {
-        owner,
-        repos,
-        selectedCount,
-        allSelected: selectedCount === repos.length,
-      }
+      return { owner, repos, selectedCount, allSelected: selectedCount === repos.length }
     })
 })
 
-// 折叠状态：默认全部展开（搜索时也展开匹配到的组）
 const collapsedOwners = ref(new Set<string>())
 function isExpanded(owner: string): boolean {
-  // 搜索时强制全展开
   if (repoState.value.search.trim() !== '') return true
   return !collapsedOwners.value.has(owner)
 }
 function toggleGroup(owner: string) {
-  if (repoState.value.search.trim() !== '') return // 搜索时禁用折叠
+  if (repoState.value.search.trim() !== '') return
   const s = new Set(collapsedOwners.value)
   if (s.has(owner)) s.delete(owner)
   else s.add(owner)
   collapsedOwners.value = s
 }
-
 function toggleGroupAll(group: RepoGroup) {
   const s = new Set(repoState.value.selected)
-  if (group.allSelected) {
-    group.repos.forEach(r => s.delete(r.fullName))
-  } else {
-    group.repos.forEach(r => s.add(r.fullName))
-  }
+  if (group.allSelected) group.repos.forEach(r => s.delete(r.fullName))
+  else group.repos.forEach(r => s.add(r.fullName))
   repoState.value.selected = s
 }
+function toggleRepo(fullName: string) {
+  const s = new Set(repoState.value.selected)
+  if (s.has(fullName)) s.delete(fullName)
+  else s.add(fullName)
+  repoState.value.selected = s
+}
+function clearSelection() {
+  repoState.value.selected = new Set()
+}
 
-// "owner/repo" → "repo"（owner 已在 group header 显示，避免重复）
 function repoShortName(fullName: string): string {
   const i = fullName.indexOf('/')
   return i >= 0 ? fullName.slice(i + 1) : fullName
 }
 
+// 加载 + 自动扫描 + 自动折叠配置
 async function loadGiteaStatus() {
   try {
     giteaStatus.value = await GetGiteaStatus()
     if (giteaStatus.value) gitea.value.baseURL = giteaStatus.value.baseUrl
+    // 已配置 → 默认折叠配置区
+    if (giteaStatus.value?.hasToken) configCollapsed.value = true
   } catch (e) {
     console.error(e)
   }
 }
 
-// 已配置 token 时进入页面 / 切换 tab → 自动扫描，避免用户多点一次
 async function autoScanIfConfigured() {
   if (giteaStatus.value?.hasToken && !repoState.value.scanned && !repoState.value.loading) {
     await scanRepos()
@@ -396,13 +386,15 @@ async function saveGitea() {
     gitea.value.tokenInput = ''
     await loadGiteaStatus()
     toast?.success('Gitea 配置已保存')
-    // 配置变了 → 重置扫描结果，并自动重新扫一次
     if (tokenWasUpdated || gitea.value.baseURL) {
       repoState.value.scanned = false
       repoState.value.repos = []
       repoState.value.selected = new Set()
       repoState.value.result = null
-      if (giteaStatus.value?.hasToken) await scanRepos()
+      if (giteaStatus.value?.hasToken) {
+        configCollapsed.value = true
+        await scanRepos()
+      }
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -417,7 +409,7 @@ async function verifyGitea() {
   verifyError.value = ''
   try {
     giteaUser.value = await VerifyGitea()
-    toast?.success(`验证成功：${giteaUser.value?.username}`)
+    toast?.success(`验证成功${giteaUser.value?.username ? `：${giteaUser.value.username}` : ''}`)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     verifyError.value = msg
@@ -434,28 +426,15 @@ async function scanRepos() {
   try {
     repoState.value.repos = await ListGiteaRepos()
     repoState.value.scanned = true
+    // 顺便补 username（成功扫描说明 token OK）
+    if (!giteaUser.value) {
+      try { giteaUser.value = await VerifyGitea() } catch { /* ignore */ }
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     repoState.value.error = msg
   }
   repoState.value.loading = false
-}
-
-function toggleRepo(fullName: string) {
-  const s = new Set(repoState.value.selected)
-  if (s.has(fullName)) s.delete(fullName)
-  else s.add(fullName)
-  repoState.value.selected = s
-}
-
-function toggleAll() {
-  const s = new Set(repoState.value.selected)
-  if (allSelected.value) {
-    filteredRepos.value.forEach(r => s.delete(r.fullName))
-  } else {
-    filteredRepos.value.forEach(r => s.add(r.fullName))
-  }
-  repoState.value.selected = s
 }
 
 async function confirmImport() {
@@ -470,7 +449,7 @@ async function confirmImport() {
   try {
     repoState.value.result = await ImportGiteaRepos({ repos: payload })
     if (repoState.value.result?.errors?.length) {
-      toast?.error(`导入完成：成功 ${repoState.value.result.imported.length}，失败 ${repoState.value.result.errors.length}`)
+      toast?.warning?.(`导入完成：成功 ${repoState.value.result.imported.length}，失败 ${repoState.value.result.errors.length}`)
     } else {
       toast?.success(`成功导入 ${repoState.value.result?.imported.length} 个项目`)
       repoState.value.selected = new Set()
@@ -486,6 +465,8 @@ function goToProjects() {
   router.push('/projects')
 }
 
+watch(verifyError, (v) => { if (v) configCollapsed.value = false })
+
 onMounted(async () => {
   await loadGiteaStatus()
   await autoScanIfConfigured()
@@ -493,123 +474,183 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.repos-view { max-width: 1100px; }
+.repos-view {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-bottom: 80px; /* 给 sticky bar 留位 */
+}
 
-h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
+/* === 顶部 head === */
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.page-head h1 {
+  font-size: 26px;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
 .subtitle {
   color: var(--text-secondary);
-  margin-bottom: 24px;
-  font-size: 14px;
+  margin: 0;
+  font-size: 13px;
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 20px;
-  align-items: start;
-}
-
-/* 左侧 provider tabs */
 .provider-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  position: sticky;
-  top: 0;
-}
-.provider-tab {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  background: var(--card-bg);
+  gap: 6px;
+  background: var(--bg-primary);
+  padding: 4px;
   border-radius: var(--radius-md);
-  border: 2px solid transparent;
+}
+.ptab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
-.provider-tab:hover:not(.disabled) { background: var(--brand-soft); }
-.provider-tab.active {
-  border-color: var(--brand-start);
-  background: var(--brand-soft);
-}
-.provider-tab.disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.provider-icon { font-size: 22px; }
-.provider-meta { flex: 1; min-width: 0; }
-.provider-name {
-  font-weight: 600;
-  font-size: 14px;
+.ptab:hover:not(.disabled):not(.active) {
+  background: var(--card-bg);
   color: var(--text-primary);
 }
-.provider-status { margin-top: 2px; }
-
-.badge {
-  display: inline-block;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-.badge.inline { margin-left: 6px; font-weight: normal; }
-.badge-ok    { background: var(--success-bg); color: var(--success-fg); }
-.badge-warn  { background: var(--warning-bg); color: var(--warning-fg); }
-.badge-muted { background: var(--bg-primary); color: var(--text-muted); }
-
-/* 右侧 panel */
-.provider-panel { display: flex; flex-direction: column; gap: 16px; }
-.card {
+.ptab.active {
   background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
+  color: var(--text-primary);
+  font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
-.card h3 {
-  font-size: var(--text-lg);
+.ptab.disabled { opacity: 0.5; cursor: not-allowed; }
+.ptab-icon { font-size: 16px; }
+.ptab-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.ptab-tag.soon { background: var(--bg-secondary); color: var(--text-muted); }
+.ptab-tag.ok   { background: var(--success-bg); color: var(--success-fg); }
+
+/* === 配置卡 === */
+.config-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  transition: padding 0.2s;
+}
+.config-card.compact { padding: 0; }
+
+/* 折叠态 summary */
+.config-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  gap: 16px;
+}
+.config-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.provider-emoji { font-size: 20px; }
+.config-url {
   color: var(--text-primary);
-  margin-bottom: 12px;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.card.empty {
-  text-align: center;
-  padding: var(--space-12);
-  color: var(--text-muted);
+.config-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--success-fg);
+  background: var(--success-bg);
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+.config-user.warn {
+  color: var(--warning-fg);
+  background: var(--warning-bg);
+}
+.user-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--success-fg);
+}
+.user-dot.warn { background: var(--warning-fg); }
+
+/* 展开态表单 */
+.config-form { padding: 20px; }
+.config-form-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.config-form-head h3 {
+  font-size: 16px;
+  margin: 0;
+  color: var(--text-primary);
 }
 
-.hint {
-  color: var(--text-secondary);
-  font-size: 12px;
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 12px;
-  line-height: 1.5;
 }
-.hint-link {
-  color: var(--brand-start);
-  text-decoration: none;
-  font-size: 12px;
+.form-row label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.hint-link:hover { text-decoration: underline; }
-
-.form-group {
-  display: flex; flex-direction: column;
-  gap: 6px; margin-bottom: 14px;
-}
-.form-group label {
-  font-size: 13px; font-weight: 500; color: var(--text-primary);
-}
-.form-group input {
-  padding: 10px 12px;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-md);
+.form-row input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
   font-size: 13px;
   background: var(--card-bg);
   color: var(--text-primary);
   transition: border-color 0.15s;
 }
-.form-group input:focus { outline: none; border-color: var(--brand-start); }
+.form-row input:focus {
+  outline: none;
+  border-color: var(--brand-start);
+}
+.ai-key-status {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--success-bg);
+  color: var(--success-fg);
+  font-weight: 500;
+}
+.ai-key-status.missing {
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+}
 
-.gitea-help {
-  margin-top: -4px; margin-bottom: 8px;
+.token-help {
+  margin: 4px 0 14px;
   padding: 10px 14px;
   background: var(--info-bg);
   border-left: 3px solid var(--info-fg);
@@ -618,79 +659,142 @@ h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
   color: var(--text-secondary);
   line-height: 1.6;
 }
-.gitea-help summary { cursor: pointer; font-weight: 500; color: var(--info-fg); user-select: none; }
-.gitea-help ol { margin: 8px 0 8px 20px; padding: 0; }
-.gitea-help li { margin-bottom: 4px; }
-.gitea-help code {
+.token-help summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--info-fg);
+  user-select: none;
+}
+.token-help ol { margin: 8px 0 4px 20px; padding: 0; }
+.token-help li { margin-bottom: 3px; }
+.token-help code {
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 5px;
   border-radius: 3px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
 }
+.hint-link {
+  color: var(--brand-start);
+  text-decoration: none;
+  font-size: 12px;
+}
+.hint-link:hover { text-decoration: underline; }
 
+.form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* === 按钮统一 === */
 .btn-primary {
   background: linear-gradient(135deg, var(--brand-start), var(--brand-end));
-  color: white; border: none;
-  padding: 10px 20px;
-  border-radius: var(--radius-md);
-  font-size: 13px; font-weight: 600;
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.15s;
+  transition: transform 0.1s, box-shadow 0.15s;
 }
-.btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
-.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px var(--brand-soft);
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-outline {
   background: transparent;
   color: var(--brand-start);
-  border: 2px solid var(--brand-start);
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  font-size: 13px; font-weight: 600;
+  border: 1px solid var(--brand-start);
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 .btn-outline:hover:not(:disabled) { background: var(--brand-soft); }
-.btn-outline:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--brand-start);
+  color: var(--brand-start);
+}
+.btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-link {
   background: none; border: none;
   color: var(--brand-start);
-  font-size: 13px; cursor: pointer;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 4px;
 }
 .btn-link:hover { text-decoration: underline; }
 
-/* repo list */
-.repo-toolbar {
-  display: flex; gap: 12px; align-items: center;
-  margin: 14px 0;
-}
-.repo-search {
-  flex: 1;
-  padding: 8px 12px;
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-}
-.repo-count { font-size: 12px; color: var(--text-secondary); margin-left: auto; }
+.spinning { animation: rot 1s linear infinite; display: inline-block; }
+@keyframes rot { to { transform: rotate(360deg); } }
 
-.repo-list {
-  max-height: 460px; overflow-y: auto;
+/* === 仓库列表 === */
+.repos-pane {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.repos-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+.search-input {
+  flex: 1;
+  max-width: 360px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--card-bg);
+  color: var(--text-primary);
+}
+.search-input:focus { outline: none; border-color: var(--brand-start); }
+.toolbar-stat {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
-.owner-group {
+.repos-tree {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.org-block {
   border-bottom: 1px solid var(--border-color);
 }
-.owner-group:last-child { border-bottom: none; }
+.org-block:last-child { border-bottom: none; }
 
-.owner-header {
+.org-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  background: var(--bg-primary);
+  padding: 10px 20px;
+  background: var(--bg-secondary);
   cursor: pointer;
   user-select: none;
   font-size: 13px;
@@ -698,118 +802,164 @@ h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
   top: 0;
   z-index: 1;
 }
-.owner-header:hover { background: var(--brand-soft); }
-
-.owner-arrow {
+.org-row:hover { background: var(--brand-soft); }
+.org-arrow {
   font-size: 11px;
   color: var(--text-secondary);
   transition: transform 0.15s;
+  width: 12px;
+  display: inline-block;
 }
-.owner-arrow.collapsed {
-  transform: rotate(-90deg);
-}
-
-.owner-name {
+.org-arrow.collapsed { transform: rotate(-90deg); }
+.org-name {
   font-weight: 600;
   color: var(--text-primary);
 }
-.owner-count {
+.org-count {
   font-size: 11px;
   color: var(--text-muted);
   font-family: 'JetBrains Mono', monospace;
+  background: var(--card-bg);
+  padding: 1px 7px;
+  border-radius: 8px;
 }
-.owner-selected {
+.org-selected {
   font-size: 11px;
   color: var(--brand-start);
   background: var(--brand-soft);
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 500;
 }
-.owner-toggle-all {
-  margin-left: auto;
-  font-size: 12px;
-}
+.org-action { margin-left: auto; }
 
-.owner-repos {
-  background: var(--card-bg);
+.repo-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-
-.repo-item {
-  display: flex; align-items: flex-start;
-  gap: 12px; padding: 8px 14px 8px 36px; /* 缩进让组层级更清晰 */
+.repo-row {
+  display: grid;
+  grid-template-columns: 24px minmax(120px, 1.4fr) 80px 22px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px 8px 32px;
   border-top: 1px solid var(--border-color);
   cursor: pointer;
-  transition: background 0.12s;
+  font-size: 13px;
+  transition: background 0.1s;
 }
-.repo-item:first-child { border-top: none; }
-.repo-item:hover { background: var(--bg-primary); }
-.repo-item.selected { background: var(--brand-soft); }
-.repo-item input[type="checkbox"] { margin-top: 4px; cursor: pointer; }
-.repo-meta { flex: 1; min-width: 0; }
-.repo-name {
-  font-weight: 600; color: var(--text-primary);
-  font-size: 13px; display: flex; align-items: center; gap: 6px;
-}
-.repo-tag {
-  font-size: 10px; font-weight: 500;
-  padding: 1px 6px; border-radius: 10px;
-  font-family: 'JetBrains Mono', monospace;
-}
-.repo-tag.private { background: var(--warning-bg); color: var(--warning-fg); }
-.repo-tag.branch  { background: var(--info-bg);    color: var(--info-fg); }
-.repo-desc {
-  margin-top: 2px; font-size: 12px;
-  color: var(--text-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.repo-row:hover { background: var(--bg-primary); }
+.repo-row.selected { background: var(--brand-soft); }
 
-.spinner-sm {
-  width: 14px; height: 14px;
-  border: 2px solid var(--border-color);
-  border-top-color: var(--brand-start);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  display: inline-block;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.import-result {
-  margin-top: 12px;
-  padding: 10px 14px;
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
-}
-.error-list {
-  margin: 6px 0 0 24px;
-  padding: 0;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.verify-error {
-  margin-top: 12px;
-  padding: 12px 16px;
-  background: var(--danger-bg);
-  border-left: 3px solid var(--danger-fg);
-  border-radius: var(--radius-sm);
-}
-.verify-help {
-  margin-top: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.verify-help summary {
+.repo-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
   cursor: pointer;
-  color: var(--info-fg);
-  font-weight: 500;
 }
-.verify-help ul {
-  margin: 8px 0 0 18px;
+.repo-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.repo-branch {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--info-fg);
+  background: var(--info-bg);
+  padding: 1px 7px;
+  border-radius: 8px;
+  text-align: center;
+}
+.repo-priv { font-size: 12px; }
+.repo-desc {
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono { font-family: 'JetBrains Mono', 'Consolas', monospace; }
+
+/* === skeleton === */
+.repos-skeleton { padding: 8px 20px; }
+.skel-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+.skel {
+  background: linear-gradient(90deg, var(--bg-primary), var(--border-color), var(--bg-primary));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 4px;
+}
+.checkbox-skel { width: 16px; height: 16px; }
+.name-skel { width: 200px; height: 14px; }
+.meta-skel { flex: 1; height: 12px; max-width: 300px; }
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* === alert === */
+.alert {
+  margin: 14px 20px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  border-left: 3px solid;
+}
+.alert.error   { background: var(--danger-bg); border-color: var(--danger-fg);  color: var(--danger-fg); }
+.alert.success { background: var(--success-bg); border-color: var(--success-fg); color: var(--success-fg); }
+.alert.mixed   { background: var(--warning-bg); border-color: var(--warning-fg); color: var(--warning-fg); }
+.alert-head {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.alert-help summary {
+  cursor: pointer;
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+.alert-help ul {
+  margin: 6px 0 0 20px;
   padding: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: normal;
   line-height: 1.7;
 }
-.verify-help code {
+.alert-help code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.alert-list {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: normal;
+}
+.alert-list li { margin-top: 4px; }
+
+.empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.empty code {
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 5px;
   border-radius: 3px;
@@ -817,15 +967,46 @@ h1 { font-size: 28px; margin-bottom: 8px; color: var(--text-primary); }
   font-size: 11px;
 }
 
-/* env-row 共用 */
-.env-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 6px 0; font-size: 13px;
+.empty-card {
+  padding: 60px;
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border-color);
 }
-.env-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.env-row.ok   .dot { background: var(--success-fg); }
-.env-row.fail .dot { background: var(--danger-fg); }
-.env-row.warn .dot { background: var(--warning-fg); }
-.env-row .label { min-width: 70px; color: var(--text-secondary); }
-.env-row .value { color: var(--text-primary); flex: 1; word-break: break-word; }
+
+/* === sticky 底部操作栏 === */
+.sticky-bar {
+  position: fixed;
+  bottom: 0;
+  left: 220px; /* 让位侧边栏宽度 */
+  right: 0;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 32px;
+  gap: 16px;
+  z-index: 100;
+  animation: slide-up 0.2s ease-out;
+}
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.bar-info {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.bar-info strong {
+  color: var(--brand-start);
+  font-size: 16px;
+}
+.bar-actions {
+  display: flex;
+  gap: 10px;
+}
 </style>
