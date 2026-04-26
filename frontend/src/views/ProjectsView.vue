@@ -264,7 +264,6 @@ async function togglePin(project: Project, pin: boolean) {
   try {
     if (pin) await PinProject(project.id)
     else     await UnpinProject(project.id)
-    toast?.success(pin ? `${project.name} 已置顶` : `${project.name} 已取消置顶`)
     await refreshProjects()
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
