@@ -63,7 +63,7 @@ func TestUpdateProject(t *testing.T) {
 	if updated.Name != "new" || updated.Path != "/b" || updated.Language != "python" {
 		t.Errorf("update fields not applied: %+v", updated)
 	}
-	if !updated.UpdatedAt.After(created.UpdatedAt) {
+	if !updated.UpdatedAt.After(created.UpdatedAt.Time) {
 		t.Errorf("UpdatedAt not advanced: %v vs %v", updated.UpdatedAt, created.UpdatedAt)
 	}
 }

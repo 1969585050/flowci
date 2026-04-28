@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
+
+	"flowci/internal/types"
 )
 
 // PipelineStep 流水线单步定义。
@@ -35,8 +36,8 @@ type Pipeline struct {
 	Name      string         `json:"name"`
 	Steps     []PipelineStep `json:"steps"`
 	Config    PipelineConfig `json:"config"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"updatedAt"`
+	CreatedAt types.JSONTime `json:"createdAt"`
+	UpdatedAt types.JSONTime `json:"updatedAt"`
 }
 
 // CreatePipelineInput 入库参数。
@@ -133,7 +134,7 @@ func GetPipeline(id string) (*Pipeline, error) {
 // CreatePipeline 落一条新流水线。steps/config 以 JSON 存表里。
 func CreatePipeline(input CreatePipelineInput) (*Pipeline, error) {
 	id := uuid.New().String()
-	now := time.Now().UTC()
+	now := types.NowJSON()
 
 	stepsJSON, _ := json.Marshal(input.Steps)
 	configJSON, _ := json.Marshal(input.Config)
@@ -159,7 +160,7 @@ func CreatePipeline(input CreatePipelineInput) (*Pipeline, error) {
 
 // UpdatePipeline 更新；目标不存在时返回 ErrNotFound。
 func UpdatePipeline(id string, input UpdatePipelineInput) (*Pipeline, error) {
-	now := time.Now().UTC()
+	now := types.NowJSON()
 	stepsJSON, _ := json.Marshal(input.Steps)
 	configJSON, _ := json.Marshal(input.Config)
 

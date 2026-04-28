@@ -8,6 +8,8 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+
+	"flowci/internal/types"
 )
 
 // DB 是全局数据库句柄。
@@ -26,11 +28,11 @@ type Project struct {
 	Language   string     `json:"language"`
 	RepoURL    string     `json:"repoUrl"`
 	RepoBranch string     `json:"repoBranch"`
-	LastPullAt *time.Time `json:"lastPullAt,omitempty"`
+	LastPullAt *types.JSONTime `json:"lastPullAt,omitempty"`
 	// PinnedAt 非空 = 已置顶；列表查询按 pinned_at DESC NULLS LAST 优先返回
-	PinnedAt  *time.Time `json:"pinnedAt,omitempty"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
+	PinnedAt  *types.JSONTime `json:"pinnedAt,omitempty"`
+	CreatedAt types.JSONTime  `json:"createdAt"`
+	UpdatedAt types.JSONTime  `json:"updatedAt"`
 }
 
 // BuildRecord 在 builds.go 中定义（保留 CRUD 与类型定义同文件）。

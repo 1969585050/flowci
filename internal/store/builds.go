@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"flowci/internal/types"
 )
 
 // ErrNotFound 通用的"记录不存在"哨兵错误；handler 层可用 errors.Is 分类响应。
@@ -30,13 +32,13 @@ type BuildRecord struct {
 	Status     string     `json:"status"` // pending, building, success, failed
 	Log        string     `json:"log,omitempty"`
 	LogSize    int64      `json:"logSize"`
-	StartedAt  time.Time  `json:"startedAt"`
-	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+	StartedAt  types.JSONTime  `json:"startedAt"`
+	FinishedAt *types.JSONTime `json:"finishedAt,omitempty"`
 }
 
 // CreateBuildRecord 在构建开始前落一条 building 状态记录，后续由 FinishBuildRecord 更新终态。
 func CreateBuildRecord(projectID, imageName, imageTag string) (BuildRecord, error) {
-	now := time.Now().UTC()
+	now := types.NowJSON()
 	r := BuildRecord{
 		ID:        uuid.NewString(),
 		ProjectID: projectID,
@@ -65,7 +67,7 @@ func FinishBuildRecord(id, status, logContent, logsDir string) error {
 
 	_, err := DB.Exec(
 		`UPDATE build_records SET status=?, log_path=?, log_size=?, finished_at=? WHERE id=?`,
-		status, logPath, logSize, time.Now().UTC(), id,
+		status, logPath, logSize, types.NowJSON(), id,
 	)
 	if err != nil {
 		return fmt.Errorf("finish build record: %w", err)
@@ -109,7 +111,7 @@ func GetBuildRecord(id string) (BuildRecord, error) {
 		return BuildRecord{}, fmt.Errorf("get build record %s: %w", id, err)
 	}
 	if finishedAt.Valid {
-		r.FinishedAt = &finishedAt.Time
+		r.FinishedAt = &types.JSONTime{Time: finishedAt.Time}
 	}
 
 	r.Log = loadBuildLog(logPath, logLegacy)
@@ -154,7 +156,7 @@ func RecentBuildsAcrossProjects(limit int) ([]BuildRecord, error) {
 			return nil, fmt.Errorf("scan recent build: %w", err)
 		}
 		if finishedAt.Valid {
-			r.FinishedAt = &finishedAt.Time
+			r.FinishedAt = &types.JSONTime{Time: finishedAt.Time}
 		}
 		out = append(out, r)
 	}
@@ -206,7 +208,7 @@ func LatestBuildRecord(projectID string) (BuildRecord, error) {
 		return BuildRecord{}, fmt.Errorf("latest build record %s: %w", projectID, err)
 	}
 	if finishedAt.Valid {
-		r.FinishedAt = &finishedAt.Time
+		r.FinishedAt = &types.JSONTime{Time: finishedAt.Time}
 	}
 	return r, nil
 }
@@ -241,7 +243,7 @@ func ListBuildRecords(projectID string) ([]BuildRecord, error) {
 			return nil, fmt.Errorf("scan build record: %w", err)
 		}
 		if finishedAt.Valid {
-			r.FinishedAt = &finishedAt.Time
+			r.FinishedAt = &types.JSONTime{Time: finishedAt.Time}
 		}
 		records = append(records, r)
 	}

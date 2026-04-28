@@ -7,7 +7,14 @@ import (
 )
 
 // settings key 常量
-const settingWindowAlwaysOnTop = "windowAlwaysOnTop"
+const (
+	settingWindowAlwaysOnTop = "windowAlwaysOnTop"
+	settingWindowX           = "windowX"
+	settingWindowY           = "windowY"
+	settingWindowWidth       = "windowWidth"
+	settingWindowHeight      = "windowHeight"
+	settingWindowMaximised   = "windowMaximised"
+)
 
 // SetWindowAlwaysOnTop 切换 Wails 窗口的"始终置顶"状态。
 // 同时把状态写入 settings 表，下次启动时 OnStartup 自动恢复。

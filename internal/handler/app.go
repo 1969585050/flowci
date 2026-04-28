@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strconv"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -59,12 +61,51 @@ func (a *App) Startup(ctx context.Context) {
 			wruntime.WindowSetAlwaysOnTop(ctx, true)
 			slog.Info("window always on top restored")
 		}
+		// 恢复窗口最大化状态
+		if settings[settingWindowMaximised] == "true" {
+			wruntime.WindowMaximise(ctx)
+			slog.Info("window maximised restored")
+		} else {
+			// 恢复窗口位置和大小
+			if x, errX := strconv.Atoi(settings[settingWindowX]); errX == nil {
+				if y, errY := strconv.Atoi(settings[settingWindowY]); errY == nil {
+					wruntime.WindowSetPosition(ctx, x, y)
+					slog.Info("window position restored", "x", x, "y", y)
+				}
+			}
+			if w, errW := strconv.Atoi(settings[settingWindowWidth]); errW == nil && w > 0 {
+				if h, errH := strconv.Atoi(settings[settingWindowHeight]); errH == nil && h > 0 {
+					wruntime.WindowSetSize(ctx, w, h)
+					slog.Info("window size restored", "w", w, "h", h)
+				}
+			}
+		}
 	}
 }
 
-// Shutdown 实现 wails options.App.OnShutdown，释放资源。
+// Shutdown 实现 wails options.App.OnShutdown，保存窗口状态后释放资源。
 func (a *App) Shutdown(ctx context.Context) {
 	_ = ctx
+
+	if a.ctx != nil {
+		x, y := wruntime.WindowGetPosition(a.ctx)
+		w, h := wruntime.WindowGetSize(a.ctx)
+		isMax := wruntime.WindowIsMaximised(a.ctx)
+
+		pairs := map[string]string{
+			settingWindowX:         strconv.Itoa(x),
+			settingWindowY:         strconv.Itoa(y),
+			settingWindowWidth:     strconv.Itoa(w),
+			settingWindowHeight:    strconv.Itoa(h),
+			settingWindowMaximised: fmt.Sprintf("%t", isMax),
+		}
+		for k, v := range pairs {
+			if err := store.SaveSettings(k, v); err != nil {
+				slog.Warn("failed to save window state", "key", k, "err", err)
+			}
+		}
+	}
+
 	store.Close()
 	slog.Info("application stopped")
 }

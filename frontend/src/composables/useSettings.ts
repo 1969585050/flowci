@@ -12,6 +12,7 @@ import { GetSettings, SaveSettings } from '../wailsjs/go/handler/App'
  */
 
 const theme = ref<ThemeMode>('dark')
+const sidebarCollapsed = ref(false)
 const loaded = ref(false)
 
 function resolveSystemTheme(): 'dark' | 'light' {
@@ -29,6 +30,9 @@ async function load() {
     const settings = await GetSettings()
     if (settings?.theme) {
       theme.value = settings.theme as ThemeMode
+    }
+    if (settings?.sidebar_collapsed === 'true') {
+      sidebarCollapsed.value = true
     }
   } catch (e) {
     // 读失败保持默认 dark；不抛给调用方
@@ -48,6 +52,15 @@ async function setTheme(mode: ThemeMode) {
   }
 }
 
+async function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  try {
+    await SaveSettings({ settings: { sidebar_collapsed: String(sidebarCollapsed.value) } })
+  } catch (e) {
+    console.error('save sidebar_collapsed failed:', e)
+  }
+}
+
 function watchSystemTheme() {
   const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
   if (!mq) return
@@ -60,6 +73,8 @@ export function useSettings() {
   return {
     theme: readonly(theme),
     loaded: readonly(loaded),
+    sidebarCollapsed: readonly(sidebarCollapsed),
+    toggleSidebar,
     isDark: computed(() => {
       const actual = theme.value === 'system' ? resolveSystemTheme() : theme.value
       return actual === 'dark'

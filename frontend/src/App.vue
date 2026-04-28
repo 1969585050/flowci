@@ -4,7 +4,7 @@
     <TitleBar />
 
     <div class="app-body">
-      <aside class="sidebar">
+      <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
         <nav class="nav">
           <router-link
             v-for="item in navItems"
@@ -18,6 +18,10 @@
           </router-link>
         </nav>
         <div class="sidebar-footer">
+          <button class="footer-btn collapse-btn" :title="sidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'" @click="toggleSidebar">
+            <ChevronRight v-if="sidebarCollapsed" :size="16" :stroke-width="1.75" />
+            <ChevronLeft v-else :size="16" :stroke-width="1.75" />
+          </button>
           <button class="footer-btn" :title="themeTooltip" @click="toggleTheme">
             <component :is="themeIcon" :size="16" :stroke-width="1.75" />
           </button>
@@ -44,6 +48,7 @@ import {
   LayoutDashboard, Package, GitBranch, Hammer, Workflow,
   Rocket, Layers, Upload, Settings,
   Sun, Moon, Monitor,
+  ChevronLeft, ChevronRight,
 } from 'lucide-vue-next'
 import TitleBar from './components/TitleBar.vue'
 import ToastHost from './components/ToastHost.vue'
@@ -72,7 +77,7 @@ const navItems = [
   { to: '/settings',     icon: Settings,        label: '设置' },
 ] as const
 
-const { theme, isDark, load, setTheme, watchSystemTheme } = useSettings()
+const { theme, isDark, load, setTheme, watchSystemTheme, sidebarCollapsed, toggleSidebar } = useSettings()
 
 provide('theme', {
   current: theme,
@@ -112,12 +117,18 @@ onMounted(() => {
 }
 
 .sidebar {
-  width: 220px;
+  width: var(--sidebar-width);
+  transition: width var(--transition-base);
   flex-shrink: 0;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-sidebar);
   display: flex;
   flex-direction: column;
+  padding: var(--space-5) 0;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
   padding: var(--space-5) 0;
 }
 
@@ -152,8 +163,25 @@ onMounted(() => {
   color: var(--text-nav-active);
   font-weight: var(--weight-medium);
 }
+.nav-item span {
+  transition: opacity var(--transition-fast);
+}
+
 .nav-icon {
   flex-shrink: 0;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: var(--space-2) var(--space-1);
+  margin: 0 var(--space-1);
+  gap: 0;
+}
+.sidebar.collapsed .nav-item span {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .sidebar-footer {
@@ -161,6 +189,11 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+
+.sidebar.collapsed .sidebar-footer {
+  flex-direction: column;
+  align-items: center;
 }
 .footer-btn {
   width: 32px;

@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
+
+	"flowci/internal/types"
 )
 
 // CreateProjectInput 新建项目入参。
@@ -56,7 +57,7 @@ func ListProjects() ([]Project, error) {
 
 // CreateProject 新建项目。
 func CreateProject(input CreateProjectInput) (Project, error) {
-	now := time.Now().UTC()
+	now := types.NowJSON()
 	p := Project{
 		ID:         uuid.NewString(),
 		Name:       input.Name,
@@ -98,7 +99,7 @@ func GetProject(id string) (Project, error) {
 func PinProject(id string) error {
 	result, err := DB.Exec(
 		`UPDATE projects SET pinned_at=? WHERE id=?`,
-		time.Now().UTC(), id,
+		types.NowJSON(), id,
 	)
 	if err != nil {
 		return fmt.Errorf("pin project %s: %w", id, err)
@@ -125,7 +126,7 @@ func UnpinProject(id string) error {
 
 // UpdateProject 更新项目；不存在返回 ErrNotFound。
 func UpdateProject(id string, input UpdateProjectInput) (Project, error) {
-	now := time.Now().UTC()
+	now := types.NowJSON()
 	result, err := DB.Exec(
 		`UPDATE projects
 		 SET name=?, path=?, language=?, repo_url=?, repo_branch=?, updated_at=?
@@ -144,7 +145,7 @@ func UpdateProject(id string, input UpdateProjectInput) (Project, error) {
 
 // MarkProjectPulled 写入最近一次 pull 成功的时间戳。
 func MarkProjectPulled(id string) error {
-	now := time.Now().UTC()
+	now := types.NowJSON()
 	result, err := DB.Exec(
 		`UPDATE projects SET last_pull_at=?, updated_at=? WHERE id=?`,
 		now, now, id,
@@ -184,10 +185,10 @@ func scanProject(s scanner) (Project, error) {
 		return Project{}, err
 	}
 	if lastPull.Valid {
-		p.LastPullAt = &lastPull.Time
+		p.LastPullAt = &types.JSONTime{Time: lastPull.Time}
 	}
 	if pinned.Valid {
-		p.PinnedAt = &pinned.Time
+		p.PinnedAt = &types.JSONTime{Time: pinned.Time}
 	}
 	return p, nil
 }
