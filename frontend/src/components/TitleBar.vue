@@ -58,7 +58,6 @@ async function onTogglePin() {
   try {
     await SetWindowAlwaysOnTop(next)
     alwaysOnTop.value = next
-    toast?.info?.(next ? '窗口已置顶' : '已取消窗口置顶')
   } catch (e) {
     toast?.error(`切换失败: ${e instanceof Error ? e.message : String(e)}`)
   }
