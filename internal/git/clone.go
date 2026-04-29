@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -101,21 +102,19 @@ func HeadCommit(ctx context.Context, dir string) (sha, subject string, err error
 	return sha, subject, nil
 }
 
-// sanitize 把 URL 里的密码遮蔽掉，避免 token 泄漏到错误信息。
+var reTokenInURL = regexp.MustCompile(`(https?://)oauth2:[^@]*(@)`)
+
+// sanitize 把 URL 里的 token 遮蔽掉，避免泄漏到错误信息。
+// 使用正则匹配 `scheme://oauth2:<token>@`，不依赖精确字符串替换，
+// 能正确处理 git 输出中的引号、尾部斜杠等变体。
 func sanitize(msg, url string) string {
 	if url == "" {
 		return msg
 	}
-	// https://oauth2:<token>@host/... → https://oauth2:***@host/...
-	if i := strings.Index(url, "@"); i > 0 {
-		if j := strings.Index(url[:i], "//"); j > 0 {
-			prefix := url[:j+2]
-			rest := url[i:]
-			masked := prefix + "***" + rest
-			msg = strings.ReplaceAll(msg, url, masked)
-		}
+	if !strings.Contains(url, "@") || !strings.Contains(url, "//") {
+		return msg
 	}
-	return msg
+	return reTokenInURL.ReplaceAllString(msg, "${1}oauth2:***${2}")
 }
 
 func parentDir(p string) string {

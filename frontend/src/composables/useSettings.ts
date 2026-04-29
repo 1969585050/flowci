@@ -15,14 +15,8 @@ const theme = ref<ThemeMode>('dark')
 const sidebarCollapsed = ref(false)
 const loaded = ref(false)
 
-function resolveSystemTheme(): 'dark' | 'light' {
-  if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) return 'dark'
-  return 'light'
-}
-
 function applyTheme(mode: ThemeMode) {
-  const actual = mode === 'system' ? resolveSystemTheme() : mode
-  document.documentElement.setAttribute('data-theme', actual)
+  document.documentElement.setAttribute('data-theme', mode)
 }
 
 async function load() {
@@ -61,26 +55,14 @@ async function toggleSidebar() {
   }
 }
 
-function watchSystemTheme() {
-  const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
-  if (!mq) return
-  mq.addEventListener('change', () => {
-    if (theme.value === 'system') applyTheme('system')
-  })
-}
-
 export function useSettings() {
   return {
     theme: readonly(theme),
     loaded: readonly(loaded),
     sidebarCollapsed: readonly(sidebarCollapsed),
     toggleSidebar,
-    isDark: computed(() => {
-      const actual = theme.value === 'system' ? resolveSystemTheme() : theme.value
-      return actual === 'dark'
-    }),
+    isDark: computed(() => theme.value === 'dark'),
     load,
     setTheme,
-    watchSystemTheme,
   }
 }

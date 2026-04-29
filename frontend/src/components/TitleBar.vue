@@ -1,16 +1,14 @@
 <template>
   <div class="titlebar" @dblclick="onTitleBarDblClick">
-    <!-- 左侧 logo / 标题（点击回 dashboard） -->
-    <router-link to="/dashboard" class="title-brand" @click.stop>
-      <Rocket class="brand-icon" :size="14" :stroke-width="2" />
-      <span class="brand-name">FlowCI</span>
-    </router-link>
-
-    <!-- 中间拖拽区（占位，wails CSS API 让此区可拖窗口） -->
+    <!-- 中间拖拽区 -->
     <div class="drag-zone" style="--wails-draggable: drag"></div>
 
     <!-- 右侧按钮组 -->
     <div class="title-actions" style="--wails-draggable: no-drag">
+      <button class="ti-btn" :title="isDark ? '切换亮色主题' : '切换暗色主题'" @click="toggleTheme">
+        <Sun v-if="isDark" :size="13" :stroke-width="1.75" />
+        <Moon v-else :size="13" :stroke-width="1.75" />
+      </button>
       <button
         class="ti-btn pin-btn"
         :class="{ active: alwaysOnTop }"
@@ -35,13 +33,20 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted, onUnmounted } from 'vue'
-import { Rocket, Pin, Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
+import { Pin, Minus, Maximize2, Minimize2, X, Sun, Moon } from 'lucide-vue-next'
+import { useSettings } from '../composables/useSettings'
 import {
   WindowMinimise, WindowToggleMaximise, WindowIsMaximised, QuitApp,
   SetWindowAlwaysOnTop, GetWindowAlwaysOnTop,
 } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (m: string) => void; error: (m: string) => void; info?: (m: string) => void }
+
+const { theme, isDark, setTheme } = useSettings()
+
+function toggleTheme() {
+  void setTheme(theme.value === 'dark' ? 'light' : 'dark')
+}
 
 const alwaysOnTop = ref(false)
 const isMax = ref(false)
@@ -82,7 +87,7 @@ async function onClose() {
 
 async function onTitleBarDblClick(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (target.closest('.title-actions, .title-brand')) return
+  if (target.closest('.title-actions')) return
   await onToggleMax()
 }
 
@@ -107,25 +112,6 @@ onUnmounted(() => {
   user-select: none;
   flex-shrink: 0;
   font-size: var(--text-sm);
-}
-
-/* 左侧 logo */
-.title-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  text-decoration: none;
-  color: var(--text-titlebar);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-.title-brand:hover { background: var(--bg-titlebar-hover); }
-.brand-icon { color: var(--brand-500); }
-.brand-name {
-  font-weight: var(--weight-semibold);
-  color: var(--brand-500);
-  letter-spacing: 0.02em;
 }
 
 /* 中间拖拽 */

@@ -34,8 +34,9 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "FlowCI",
-		Width:  1200,
-		Height: 800,
+		Width:  1340,
+		Height: 720,
+		DisableResize: true,
 		// Frameless: 去掉 Windows 系统标题栏，由前端 TitleBar.vue 自绘
 		// （含 logo + 拖拽区 + 📌 置顶 + — 最小化 + ⬜ 最大化 + ✕ 关闭）
 		Frameless: true,
@@ -52,7 +53,6 @@ func main() {
 			WebviewIsTransparent:              false,
 			WindowIsTranslucent:               false,
 			DisableWindowIcon:                 false,
-			// Frameless 模式下让 webview 自己处理无边框装饰
 			DisableFramelessWindowDecorations: true,
 		},
 	})

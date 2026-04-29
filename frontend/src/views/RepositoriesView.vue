@@ -191,8 +191,8 @@
         <!-- 导入结果（覆盖在底部 above sticky bar） -->
         <div v-if="repoState.result" class="alert" :class="repoState.result.errors?.length ? 'mixed' : 'success'">
           <div class="alert-head">
-            <template v-if="repoState.result.imported.length">
-              ✓ 成功导入 {{ repoState.result.imported.length }} 个
+            <template v-if="repoState.result.imported?.length">
+              ✓ 成功导入 {{ repoState.result.imported?.length }} 个
             </template>
             <template v-if="repoState.result.errors?.length">
               · ✗ 失败 {{ repoState.result.errors.length }} 个
@@ -450,7 +450,7 @@ async function confirmImport() {
   try {
     repoState.value.result = await ImportGiteaRepos({ repos: payload })
     if (repoState.value.result?.errors?.length) {
-      toast?.warning?.(`导入完成：成功 ${repoState.value.result.imported.length}，失败 ${repoState.value.result.errors.length}`)
+      toast?.warning?.(`导入完成：成功 ${repoState.value.result.imported?.length ?? 0}，失败 ${repoState.value.result.errors.length}`)
     } else {
       toast?.success(`成功导入 ${repoState.value.result?.imported.length} 个项目`)
       repoState.value.selected = new Set()

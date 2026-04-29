@@ -106,7 +106,10 @@ func (a *App) ImportGiteaRepos(req *ImportGiteaReposRequest) (*ImportGiteaReposR
 		return nil, err
 	}
 
-	resp := &ImportGiteaReposResponse{}
+	resp := &ImportGiteaReposResponse{
+		Imported: make([]*store.Project, 0),
+		Errors:   make([]ImportError, 0),
+	}
 	for _, sel := range req.Repos {
 		project, ierr := a.importOneGiteaRepo(client, sel)
 		if ierr != nil {
@@ -154,17 +157,38 @@ func (a *App) importOneGiteaRepo(client *gitprovider.GiteaClient, sel ImportGite
 	// 把 token 注入 clone URL
 	urlWithToken := client.CloneURLWithToken(sel.CloneURL)
 
-	ctx, cancel := context.WithTimeout(a.ctx, 10*time.Minute)
-	defer cancel()
-	if err := git.Clone(ctx, git.CloneRequest{
-		URL:    urlWithToken,
-		Branch: sel.Branch,
-		Dest:   dest,
-	}); err != nil {
-		// 回滚
+	const maxRetries = 3
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			_ = os.RemoveAll(dest)
+			delay := time.Duration(attempt) * 2 * time.Second
+			slog.Info("git clone retry", "repo", sel.FullName, "attempt", attempt, "delay", delay)
+			select {
+			case <-a.ctx.Done():
+				_ = store.DeleteProject(p.ID)
+				_ = os.RemoveAll(dest)
+				return nil, fmt.Errorf("git clone cancelled: %w", a.ctx.Err())
+			case <-time.After(delay):
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(a.ctx, 10*time.Minute)
+		err := git.Clone(ctx, git.CloneRequest{
+			URL:    urlWithToken,
+			Branch: sel.Branch,
+			Dest:   dest,
+		})
+		cancel()
+		if err == nil {
+			break
+		}
+		lastErr = err
+	}
+	if lastErr != nil {
 		_ = store.DeleteProject(p.ID)
 		_ = os.RemoveAll(dest)
-		return nil, fmt.Errorf("git clone: %w", err)
+		return nil, fmt.Errorf("git clone (retried %d times): %w", maxRetries, lastErr)
 	}
 
 	// 写回 path 和 lastPullAt

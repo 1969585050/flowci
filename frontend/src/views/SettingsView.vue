@@ -101,33 +101,6 @@
     </div>
 
     <div class="card">
-      <h3>主题设置</h3>
-      <div class="theme-toggle">
-        <button
-          class="theme-btn"
-          :class="{ active: settings.theme === 'system' }"
-          @click="setTheme('system')"
-        >
-          💻 跟随系统
-        </button>
-        <button
-          class="theme-btn"
-          :class="{ active: settings.theme === 'dark' }"
-          @click="setTheme('dark')"
-        >
-          🌙 深色
-        </button>
-        <button
-          class="theme-btn"
-          :class="{ active: settings.theme === 'light' }"
-          @click="setTheme('light')"
-        >
-          ☀️ 浅色
-        </button>
-      </div>
-    </div>
-
-    <div class="card">
       <h3>默认配置</h3>
       <div class="form-group">
         <label>默认镜像仓库</label>
@@ -199,7 +172,6 @@ import {
 } from '../wailsjs/go/handler/App'
 
 const toast = inject('toast') as { success: (msg: string) => void; error: (msg: string) => void; info: (msg: string) => void }
-const themeContext = inject('theme') as { current: { value: string }; setTheme: (theme: string) => void }
 
 const dockerStatus = ref({
   status: 'checking',
@@ -239,7 +211,6 @@ async function detectEnv() {
 const settings = ref({
   defaultRegistry: 'docker.io',
   defaultWorkdir: '/workspace',
-  theme: 'system',
   dockerHost: '',
   aiBaseURL: '',
   aiModel: '',
@@ -282,8 +253,6 @@ async function copyHintCmd(cmd: string) {
   }
 }
 
-// Gitea 集成已迁到独立菜单 "仓库源"（/repositories）
-
 async function refreshAIKeyStatus() {
   try {
     const s = await GetAIKeyStatus()
@@ -301,7 +270,6 @@ async function saveAISettings() {
         aiModel: settings.value.aiModel,
       },
     })
-    // API key 单独走 keyring；空字符串保留旧值（不改），全空格视为清除
     if (aiKeyInput.value !== '') {
       const trimmed = aiKeyInput.value.trim()
       await SaveAIKey({ apiKey: trimmed })
@@ -323,29 +291,14 @@ async function loadSettings() {
     if (result.dockerHost) settings.value.dockerHost = result.dockerHost
     if (result.aiBaseURL) settings.value.aiBaseURL = result.aiBaseURL
     if (result.aiModel) settings.value.aiModel = result.aiModel
-    if (result.theme) {
-      settings.value.theme = result.theme
-      themeContext?.setTheme(result.theme)
-    }
   } catch (e) {
     console.error('Failed to load settings:', e)
   }
   await refreshAIKeyStatus()
 }
 
-function setTheme(theme: string) {
-  settings.value.theme = theme
-  themeContext?.setTheme(theme)
-  saveSettings()
-}
-
 async function checkDocker() {
-  dockerStatus.value = {
-    status: 'checking',
-    text: '检查中...',
-    version: ''
-  }
-  
+  dockerStatus.value = { status: 'checking', text: '检查中...', version: '' }
   try {
     const result = await CheckDocker()
     dockerStatus.value = {
@@ -353,12 +306,8 @@ async function checkDocker() {
       text: result.connected ? '已连接' : '未连接',
       version: result.version || ''
     }
-  } catch (e) {
-    dockerStatus.value = {
-      status: 'error',
-      text: '检查失败',
-      version: ''
-    }
+  } catch {
+    dockerStatus.value = { status: 'error', text: '检查失败', version: '' }
   }
 }
 
@@ -368,12 +317,10 @@ async function saveSettings() {
       settings: {
         defaultRegistry: settings.value.defaultRegistry,
         defaultWorkdir: settings.value.defaultWorkdir,
-        theme: settings.value.theme,
         dockerHost: settings.value.dockerHost,
       },
     })
     toast?.success('设置已保存')
-    // dockerHost 改了后立刻重测连接
     void checkDocker()
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
@@ -396,43 +343,6 @@ onMounted(() => {
 h1 {
   font-size: 28px;
   margin-bottom: 24px;
-}
-
-.card {
-  background: var(--card-bg, #fff);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: var(--shadow, 0 2px 12px rgba(0, 0, 0, 0.05));
-  margin-bottom: 20px;
-}
-
-.theme-toggle {
-  display: flex;
-  gap: 12px;
-}
-
-.theme-btn {
-  flex: 1;
-  padding: 12px 20px;
-  border: 2px solid var(--border-color, #e0e0e0);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-secondary, #666);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.theme-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
-}
-
-.theme-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: transparent;
-  color: white;
 }
 
 .card {
@@ -682,38 +592,5 @@ h1 {
 }
 .hint-link:hover {
   text-decoration: underline;
-}
-
-.gitea-help {
-  margin-top: -4px;
-  margin-bottom: 8px;
-  padding: 10px 14px;
-  background: var(--info-bg, #eff6ff);
-  border-left: 3px solid var(--info-fg, #1e40af);
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--text-secondary, #4a5568);
-  line-height: 1.6;
-}
-.gitea-help summary {
-  cursor: pointer;
-  font-weight: 500;
-  color: var(--info-fg, #1e40af);
-  user-select: none;
-  outline: none;
-}
-.gitea-help ol {
-  margin: 8px 0 8px 20px;
-  padding: 0;
-}
-.gitea-help li {
-  margin-bottom: 4px;
-}
-.gitea-help code {
-  background: rgba(0, 0, 0, 0.06);
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
 }
 </style>

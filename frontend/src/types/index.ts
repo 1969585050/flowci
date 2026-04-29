@@ -3,7 +3,7 @@
  * wailsjs/go/models (auto-generated). This file is for purely UI state.
  */
 
-export type ThemeMode = 'dark' | 'light' | 'system'
+export type ThemeMode = 'dark' | 'light'
 
 export interface ToastItem {
   id: number

@@ -45,8 +45,8 @@
   --leading-relaxed: 1.7;
 
   /* ---- Sidebar ---- */
-  --sidebar-width: 220px;
-  --sidebar-collapsed-width: 56px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 60px;
 
   /* ---- Spacing (8-grid; 4px is micro fine-tune only) ---- */
   --space-1:  4px;   /* micro */
