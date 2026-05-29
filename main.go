@@ -36,7 +36,7 @@ func main() {
 		Title:  "FlowCI",
 		Width:  1340,
 		Height: 720,
-		DisableResize: true,
+		DisableResize: false,
 		// Frameless: 去掉 Windows 系统标题栏，由前端 TitleBar.vue 自绘
 		// （含 logo + 拖拽区 + 📌 置顶 + — 最小化 + ⬜ 最大化 + ✕ 关闭）
 		Frameless: true,
