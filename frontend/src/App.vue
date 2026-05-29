@@ -38,12 +38,7 @@
             <router-link to="/deploy" class="sb-item" title="部署"><Rocket :size="15" :stroke-width="1.5" /><span class="sb-label">部署</span></router-link>
             <router-link to="/push" class="sb-item" title="推送"><Upload :size="15" :stroke-width="1.5" /><span class="sb-label">推送</span></router-link>
           </div>
-          <div class="sb-section">
-            <div class="sb-section-label">项目列表</div>
-            <router-link v-for="p in projectList" :key="p.id" :to="{ path: '/build', query: { projectId: p.id } }" class="sb-item" :title="p.name">
-              <Folder :size="15" :stroke-width="1.5" /><span class="sb-label">{{ p.name }}</span><span class="sb-badge">{{ p.buildCount }}</span>
-            </router-link>
-          </div>
+          
         </div>
       </aside>
 

@@ -206,7 +206,7 @@
 
 <script setup lang="ts">
 import { ref, inject, onMounted, type Component } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import {
   Plus, GitBranch, Folder, MoreHorizontal, FolderOpen, MessageSquareText,
   Play, History, Pin, PinOff, Rocket, Pencil, Trash2, PackageOpen,
@@ -247,7 +247,6 @@ interface ProjectStats {
 }
 
 const router = useRouter()
-const route = useRoute()
 const loading = ref(false)
 const creating = ref(false)
 const updating = ref(false)
@@ -466,9 +465,6 @@ function deployProject(project: Project) {
 
 onMounted(() => {
   refreshProjects()
-  if (route.query.action === 'create') {
-    showCreateDialog.value = true
-  }
 })
 </script>
 
