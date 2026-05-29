@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="build-history-view">
     <div class="header">
       <div class="header-left">
@@ -152,12 +152,12 @@ onMounted(() => {
 
 .header-left h1 {
   font-size: 24px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin: 0;
 }
 
 .btn-back {
-  background: var(--bg-primary, #f0f0f0);
+  background: var(--bg-primary, var(--bg-surface));
   color: var(--text-primary, #333);
   border: none;
   padding: 8px 16px;
@@ -168,7 +168,7 @@ onMounted(() => {
 }
 
 .btn-back:hover {
-  background: var(--border-color, #e0e0e0);
+  background: var(--border-color, var(--border-default));
 }
 
 .loading, .empty-state {
@@ -183,8 +183,8 @@ onMounted(() => {
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid var(--border-color, #e0e0e0);
-  border-top-color: #667eea;
+  border: 4px solid var(--border-color, var(--border-default));
+  border-top-color: var(--brand-500);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -243,11 +243,11 @@ onMounted(() => {
 .record-image {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
 }
 
 .record-image .tag {
-  color: #667eea;
+  color: var(--brand-500);
   font-weight: 400;
 }
 
@@ -272,17 +272,19 @@ onMounted(() => {
 }
 
 .status-badge.building {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
 }
 
 .status-badge.success {
-  background: #d1fae5;
-  color: #059669;
+  background: var(--success-bg);
+  color: var(--success-fg);
 }
 
 .status-badge.failed {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 </style>
+
+

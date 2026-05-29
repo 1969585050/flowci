@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="pipeline-view">
     <div class="header">
       <div class="header-left">
@@ -401,7 +401,7 @@ onMounted(loadPipelines)
 
 .header h1 {
   font-size: 28px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
 }
 
 .header-actions {
@@ -421,8 +421,8 @@ onMounted(loadPipelines)
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid var(--border-color, #e0e0e0);
-  border-top-color: #667eea;
+  border: 4px solid var(--border-color, var(--border-default));
+  border-top-color: var(--brand-500);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -468,7 +468,7 @@ onMounted(loadPipelines)
 
 .pipeline-info h3 {
   font-size: 18px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin: 0 0 4px 0;
 }
 
@@ -495,23 +495,23 @@ onMounted(loadPipelines)
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 13px;
-  background: var(--bg-primary, #f5f5f5);
+  background: var(--bg-primary, var(--bg-surface));
   color: var(--text-primary, #333);
 }
 
 .step-badge.build {
   background: #dbeafe;
-  color: #1d4ed8;
+  color: var(--brand-700);
 }
 
 .step-badge.push {
   background: #f3e8ff;
-  color: #7c3aed;
+  color: var(--brand-600);
 }
 
 .step-badge.deploy {
-  background: #d1fae5;
-  color: #059669;
+  background: var(--success-bg);
+  color: var(--success-fg);
 }
 
 .modal-overlay {
@@ -540,7 +540,7 @@ onMounted(loadPipelines)
 
 .modal h2 {
   font-size: 22px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin: 0 0 24px 0;
 }
 
@@ -560,7 +560,7 @@ onMounted(loadPipelines)
 .form-group input,
 .form-group select {
   padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   font-size: 14px;
   background: var(--card-bg, white);
@@ -571,13 +571,13 @@ onMounted(loadPipelines)
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-500);
 }
 
 .steps-section {
   margin-top: 20px;
   padding-top: 20px;
-  border-top: 1px solid var(--border-color, #e0e0e0);
+  border-top: 1px solid var(--border-color, var(--border-default));
 }
 
 .steps-header {
@@ -603,7 +603,7 @@ onMounted(loadPipelines)
 .step-type-select {
   width: 100px;
   padding: 8px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 6px;
   font-size: 13px;
   background: var(--card-bg, white);
@@ -613,7 +613,7 @@ onMounted(loadPipelines)
 .step-name-input {
   flex: 1;
   padding: 8px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 6px;
   font-size: 13px;
   background: var(--card-bg, white);
@@ -623,7 +623,7 @@ onMounted(loadPipelines)
 .step-retry-input {
   width: 70px;
   padding: 8px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 6px;
   font-size: 13px;
   background: var(--card-bg, white);
@@ -634,7 +634,7 @@ onMounted(loadPipelines)
 .step-fail-select {
   width: 100px;
   padding: 8px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 6px;
   font-size: 13px;
   background: var(--card-bg, white);
@@ -646,8 +646,8 @@ onMounted(loadPipelines)
   height: 32px;
   border: none;
   border-radius: 6px;
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
   cursor: pointer;
   font-size: 14px;
 }
@@ -658,7 +658,7 @@ onMounted(loadPipelines)
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
 }
 
@@ -670,7 +670,7 @@ onMounted(loadPipelines)
 }
 
 .btn-cancel {
-  background: var(--bg-primary, #f0f0f0);
+  background: var(--bg-primary, var(--bg-surface));
   color: var(--text-primary, #333);
   border: none;
   padding: 12px 24px;
@@ -680,7 +680,7 @@ onMounted(loadPipelines)
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -696,17 +696,17 @@ onMounted(loadPipelines)
 }
 
 .btn-secondary {
-  background: var(--bg-primary, #f0f0f0);
+  background: var(--bg-primary, var(--bg-surface));
   color: var(--text-primary, #333);
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: 1px solid var(--border-color, var(--border-default));
 }
 
 .btn-secondary:hover {
-  background: var(--border-color, #e0e0e0);
+  background: var(--border-color, var(--border-default));
 }
 
 .yaml-preview {
-  background: #1e1e2e;
+  background: var(--bg-sunken);
   border-radius: 8px;
   padding: 16px;
   margin: 16px 0;
@@ -715,7 +715,7 @@ onMounted(loadPipelines)
 }
 
 .yaml-preview pre {
-  color: #a5b6cf;
+  color: var(--text-secondary);
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.5;
@@ -729,17 +729,17 @@ onMounted(loadPipelines)
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  background: var(--border-color, #e0e0e0);
+  background: var(--border-color, var(--border-default));
   color: var(--text-primary, #333);
 }
 
 .btn-action:hover {
-  background: #d0d0d0;
+  background: var(--border-strong);
 }
 
 .btn-danger {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 
 .btn-danger:hover {
@@ -747,7 +747,7 @@ onMounted(loadPipelines)
 }
 
 .pipeline-run-info {
-  background: var(--bg-primary, #f5f5f5);
+  background: var(--bg-primary, var(--bg-surface));
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 20px;
@@ -784,15 +784,15 @@ onMounted(loadPipelines)
   gap: 10px;
   padding: 12px;
   border-radius: 8px;
-  background: var(--bg-primary, #f5f5f5);
+  background: var(--bg-primary, var(--bg-surface));
 }
 
 .log-item.success {
-  background: #d1fae5;
+  background: var(--success-bg);
 }
 
 .log-item.failed {
-  background: #fee2e2;
+  background: var(--danger-bg);
 }
 
 .log-icon {
@@ -810,3 +810,5 @@ onMounted(loadPipelines)
   font-size: 13px;
 }
 </style>
+
+

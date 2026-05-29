@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="push-view">
     <h1>推送镜像</h1>
 
@@ -118,7 +118,7 @@ async function pushImage() {
 
 h1 {
   font-size: 28px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 24px;
 }
 
@@ -132,7 +132,7 @@ h1 {
 
 .card h3 {
   font-size: 18px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 16px;
 }
 
@@ -182,7 +182,7 @@ h1 {
 
 .form-group input {
   padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   font-size: 14px;
   background: var(--card-bg, white);
@@ -192,11 +192,11 @@ h1 {
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-500);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -224,7 +224,7 @@ h1 {
 }
 
 .logs-container {
-  background: #1e1e2e;
+  background: var(--bg-sunken);
   border-radius: 8px;
   padding: 16px;
   max-height: 300px;
@@ -238,19 +238,21 @@ h1 {
 }
 
 .log-time {
-  color: #6b7089;
+  color: var(--text-muted);
   margin-right: 8px;
 }
 
 .log-text {
-  color: #a5b6cf;
+  color: var(--text-secondary);
 }
 
 .log-line.success .log-text {
-  color: #a6e3a1;
+  color: var(--success-fg);
 }
 
 .log-line.error .log-text {
-  color: #f38ba8;
+  color: var(--danger-fg);
 }
 </style>
+
+

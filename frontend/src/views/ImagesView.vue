@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="images-view">
     <div class="page-header">
       <h2>镜像管理</h2>
@@ -150,7 +150,7 @@ onMounted(refreshImages)
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  border-bottom: 1px solid var(--border-color, var(--bg-surface));
 }
 
 .image-name {
@@ -175,7 +175,7 @@ onMounted(refreshImages)
 }
 
 .tag {
-  color: #667eea;
+  color: var(--brand-500);
   font-weight: 500;
   font-size: 14px;
 }
@@ -212,7 +212,7 @@ onMounted(refreshImages)
 
 .image-card-footer {
   padding: 12px 20px;
-  border-top: 1px solid var(--border-color, #f0f0f0);
+  border-top: 1px solid var(--border-color, var(--bg-surface));
   display: flex;
   justify-content: flex-end;
 }
@@ -232,22 +232,24 @@ onMounted(refreshImages)
 }
 
 .btn-secondary {
-  background: var(--bg-primary, #f0f0f0);
+  background: var(--bg-primary, var(--bg-surface));
   color: var(--text-primary, #333);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: var(--border-color, #e0e0e0);
+  background: var(--border-color, var(--border-default));
 }
 
 .btn-danger {
   background: var(--card-bg, #fff);
-  color: #e74c3c;
-  border: 1px solid #e74c3c;
+  color: var(--danger-fg);
+  border: 1px solid var(--danger-fg);
 }
 
 .btn-danger:hover {
-  background: #e74c3c;
+  background: var(--danger-fg);
   color: #fff;
 }
 </style>
+
+

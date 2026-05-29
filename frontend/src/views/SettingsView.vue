@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="settings-view">
     <h1>设置</h1>
 
@@ -355,7 +355,7 @@ h1 {
 
 .card h3 {
   font-size: 18px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 16px;
 }
 
@@ -369,8 +369,8 @@ h1 {
 }
 
 .status-badge.checking {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
 }
 
 .status-badge.connected {
@@ -380,8 +380,8 @@ h1 {
 
 .status-badge.disconnected,
 .status-badge.error {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 
 .status-dot {
@@ -412,7 +412,7 @@ h1 {
 
 .form-group input {
   padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   font-size: 14px;
   background: var(--card-bg, #fff);
@@ -422,11 +422,11 @@ h1 {
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-500);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -443,8 +443,8 @@ h1 {
 
 .btn-outline {
   background: transparent;
-  color: #667eea;
-  border: 2px solid #667eea;
+  color: var(--brand-500);
+  border: 2px solid var(--brand-500);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -454,7 +454,7 @@ h1 {
 }
 
 .btn-outline:hover {
-  background: #667eea;
+  background: var(--brand-500);
   color: white;
 }
 
@@ -466,16 +466,16 @@ h1 {
 .hint {
   margin-top: 6px;
   font-size: 12px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, var(--text-muted));
   line-height: 1.5;
 }
 
 .env-report {
   margin-top: 16px;
   padding: 12px 16px;
-  background: var(--bg-primary, #f5f7fa);
+  background: var(--bg-primary, var(--bg-surface));
   border-radius: 8px;
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: 1px solid var(--border-color, var(--border-default));
 }
 
 .env-row {
@@ -494,8 +494,8 @@ h1 {
 }
 
 .env-row.ok   .dot { background: var(--success-fg, #16a34a); }
-.env-row.warn .dot { background: var(--warning-fg, #d97706); }
-.env-row.fail .dot { background: var(--danger-fg,  #dc2626); }
+.env-row.warn .dot { background: var(--warning-fg, var(--warning-fg)); }
+.env-row.fail .dot { background: var(--danger-fg,  var(--danger-fg)); }
 
 .env-row .env-label {
   width: 110px;
@@ -503,7 +503,7 @@ h1 {
 }
 
 .env-row .env-value {
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   flex: 1;
 }
 
@@ -514,7 +514,7 @@ h1 {
   color: var(--success-fg, #16a34a);
 }
 .ai-key-status.missing {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, var(--text-muted));
 }
 
 .env-value.mono {
@@ -528,7 +528,7 @@ h1 {
   margin-top: 16px;
   padding: 12px 16px;
   background: var(--warning-bg, #fffbeb);
-  border-left: 3px solid var(--warning-fg, #d97706);
+  border-left: 3px solid var(--warning-fg, var(--warning-fg));
   border-radius: 6px;
 }
 
@@ -548,7 +548,7 @@ h1 {
 
 .hint-label {
   font-size: 12px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   font-weight: 500;
   margin-bottom: 4px;
 }
@@ -560,20 +560,20 @@ h1 {
   background: var(--bg-secondary, #fff);
   padding: 6px 10px;
   border-radius: 4px;
-  border: 1px solid var(--border-color, #e0e0e0);
+  border: 1px solid var(--border-color, var(--border-default));
 }
 .hint-cmd code {
   flex: 1;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   white-space: nowrap;
   overflow-x: auto;
 }
 .btn-copy {
   background: transparent;
-  border: 1px solid var(--brand-start, #667eea);
-  color: var(--brand-start, #667eea);
+  border: 1px solid var(--brand-start, var(--brand-500));
+  color: var(--brand-start, var(--brand-500));
   padding: 2px 10px;
   border-radius: 4px;
   font-size: 11px;
@@ -587,10 +587,12 @@ h1 {
   display: inline-block;
   margin-top: 4px;
   font-size: 12px;
-  color: var(--brand-start, #667eea);
+  color: var(--brand-start, var(--brand-500));
   text-decoration: none;
 }
 .hint-link:hover {
   text-decoration: underline;
 }
 </style>
+
+

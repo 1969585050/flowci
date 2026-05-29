@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="build-detail-view">
     <div class="header">
       <div class="header-left">
@@ -179,12 +179,12 @@ onMounted(() => {
 
 .header-left h1 {
   font-size: 24px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin: 0;
 }
 
 .btn-back {
-  background: var(--bg-primary, #f0f0f0);
+  background: var(--bg-primary, var(--bg-surface));
   color: var(--text-primary, #333);
   border: none;
   padding: 8px 16px;
@@ -195,7 +195,7 @@ onMounted(() => {
 }
 
 .btn-back:hover {
-  background: var(--border-color, #e0e0e0);
+  background: var(--border-color, var(--border-default));
 }
 
 .loading, .empty-state {
@@ -210,8 +210,8 @@ onMounted(() => {
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid var(--border-color, #e0e0e0);
-  border-top-color: #667eea;
+  border: 4px solid var(--border-color, var(--border-default));
+  border-top-color: var(--brand-500);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -254,7 +254,7 @@ onMounted(() => {
 .info-value {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
 }
 
 .status-badge {
@@ -266,18 +266,18 @@ onMounted(() => {
 }
 
 .status-badge.building {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
 }
 
 .status-badge.success {
-  background: #d1fae5;
-  color: #059669;
+  background: var(--success-bg);
+  color: var(--success-fg);
 }
 
 .status-badge.failed {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 
 .log-section {
@@ -289,7 +289,7 @@ onMounted(() => {
 
 .log-section h3 {
   font-size: 16px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin: 0;
 }
 
@@ -301,7 +301,7 @@ onMounted(() => {
 }
 
 .btn-ai {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -334,7 +334,7 @@ onMounted(() => {
   margin-bottom: 8px;
 }
 .diagnosis-tag {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-600));
   color: white;
   font-size: 11px;
   font-weight: 600;
@@ -343,7 +343,7 @@ onMounted(() => {
 }
 .diagnosis-model {
   font-size: 12px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, var(--text-muted));
   font-family: 'JetBrains Mono', monospace;
 }
 .btn-link {
@@ -359,15 +359,15 @@ onMounted(() => {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   font-size: 13px;
   line-height: 1.6;
   font-family: -apple-system, 'Segoe UI', sans-serif;
 }
 
 .log-container {
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-sunken);
+  color: var(--text-primary);
   border-radius: 8px;
   padding: 16px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
@@ -383,3 +383,5 @@ onMounted(() => {
   word-break: break-all;
 }
 </style>
+
+

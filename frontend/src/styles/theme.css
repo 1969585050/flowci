@@ -48,6 +48,10 @@
   --sidebar-width: 240px;
   --sidebar-collapsed-width: 60px;
 
+  /* ---- Activity Bar ---- */
+  --activity-w: 36px;
+  --sidebar-w: 220px;
+
   /* ---- Spacing (8-grid; 4px is micro fine-tune only) ---- */
   --space-1:  4px;   /* micro */
   --space-2:  8px;
@@ -93,77 +97,82 @@
  * ============================================================= */
 [data-theme="dark"] {
   /* ---- Surfaces ---- */
-  --bg-canvas:    #0b0d12;  /* outermost backdrop */
-  --bg-surface:   #11141b;  /* cards, panels (most common) */
-  --bg-elevated:  #161a23;  /* popovers, dropdowns, modals */
-  --bg-sunken:    #0a0c11;  /* inputs, code blocks, build strip */
-  --bg-hover:     #1a1f2a;  /* hover state for surfaces */
+  --bg-canvas:    #2B2D2F;  /* gap between panels */
+  --bg-surface:   #26282B;  /* cards */
+  --bg-elevated:  #323335;  /* titlebar, popovers */
+  --bg-sunken:    #1A1C1E;  /* inputs, code blocks */
+  --bg-hover:     #2A2D30;  /* hover state */
+  --bg-editor:    #191A1C;  /* editor content area */
+  --bg-panel:     #212326;  /* sidebar, activity bar */
 
   /* ---- Text ---- */
-  --text-primary:   #e6e8ef;  /* contrast 12.4:1 vs --bg-surface */
-  --text-secondary: #a4abbd;  /* contrast 7.0:1  vs --bg-surface */
-  --text-muted:     #6b7280;  /* contrast 4.6:1  vs --bg-surface (AA) */
-  --text-ghost:     #4a5061;  /* decorative only — not for body text */
+  --text-primary:   #BCBEC4;
+  --text-secondary: #8C9098;
+  --text-muted:     #6C7078;
+  --text-ghost:     #53575D;
   --text-on-brand:  #ffffff;
 
   /* ---- Borders ---- */
-  --border-subtle:  #222632;
-  --border-default: #2a2f3d;
-  --border-strong:  #3a4050;
+  --border-subtle:  #2B2E31;
+  --border-default: #33353B;
+  --border-strong:  #3E4046;
   --border-focus:   var(--brand-500);
 
-  /* ---- Brand (cool-blue mono — Linear-ish) ---- */
-  --brand-100: rgba(59, 130, 246, 0.12);
-  --brand-200: rgba(59, 130, 246, 0.20);
-  --brand-300: #7eb3ff;
-  --brand-500: #3b82f6;
-  --brand-600: #2563eb;
-  --brand-700: #1d4ed8;
+  /* ---- Brand (IDEA blue) ---- */
+  --brand-100: rgba(53, 116, 240, 0.12);
+  --brand-200: rgba(53, 116, 240, 0.20);
+  --brand-300: #7EAFFF;
+  --brand-500: #3574F0;
+  --brand-600: #2965D9;
+  --brand-700: #1D4ED8;
 
-  /* ---- Status colors (desaturated for dark BG) ---- */
-  --success-fg:  #56d364;
-  --success-bg:  rgba(86, 211, 100, 0.10);
-  --success-bd:  rgba(86, 211, 100, 0.28);
-  --danger-fg:   #f85149;
-  --danger-bg:   rgba(248, 81, 73, 0.10);
-  --danger-bd:   rgba(248, 81, 73, 0.28);
-  --warning-fg:  #e3b341;
-  --warning-bg:  rgba(227, 179, 65, 0.10);
-  --warning-bd:  rgba(227, 179, 65, 0.28);
-  --info-fg:     #58a6ff;
-  --info-bg:     rgba(88, 166, 255, 0.10);
-  --info-bd:     rgba(88, 166, 255, 0.28);
+  /* ---- Status colors ---- */
+  --success-fg:  #4D9E5A;
+  --success-bg:  rgba(77, 158, 90, 0.10);
+  --success-bd:  rgba(77, 158, 90, 0.24);
+  --danger-fg:   #E05559;
+  --danger-bg:   rgba(224, 85, 89, 0.10);
+  --danger-bd:   rgba(224, 85, 89, 0.24);
+  --warning-fg:  #D9A343;
+  --warning-bg:  rgba(217, 163, 67, 0.10);
+  --warning-bd:  rgba(217, 163, 67, 0.24);
+  --info-fg:     #5E9CF5;
+  --info-bg:     rgba(94, 156, 245, 0.10);
+  --info-bd:     rgba(94, 156, 245, 0.24);
 
-  /* ---- Step type colors (pipeline badges) ---- */
-  --step-build-fg:  #58a6ff;
-  --step-build-bg:  rgba(88, 166, 255, 0.14);
-  --step-push-fg:   #c084fc;
-  --step-push-bg:   rgba(192, 132, 252, 0.14);
-  --step-deploy-fg: #56d364;
-  --step-deploy-bg: rgba(86, 211, 100, 0.14);
+  /* ---- Step type colors ---- */
+  --step-build-fg:  #5E9CF5;
+  --step-build-bg:  rgba(94, 156, 245, 0.14);
+  --step-push-fg:   #B48EF5;
+  --step-push-bg:   rgba(180, 142, 245, 0.14);
+  --step-deploy-fg: #4D9E5A;
+  --step-deploy-bg: rgba(77, 158, 90, 0.14);
 
-  /* ---- Shadows (heavier for dark) ---- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+  /* ---- Shadows ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
 
   /* ---- Sidebar / TitleBar ---- */
-  --bg-sidebar:        #0a0c11;
-  --border-sidebar:    transparent;          /* no divider needed in dark */
-  --text-nav:          #a4abbd;
-  --text-nav-hover:    #e6e8ef;
+  --bg-sidebar:        var(--bg-panel);
+  --border-sidebar:    var(--border-default);
+  --text-nav:          var(--text-secondary);
+  --text-nav-hover:    var(--text-primary);
   --text-nav-active:   var(--brand-500);
   --bg-nav-active:     var(--brand-100);
-  --text-titlebar:     #e6e8ef;
-  --text-titlebar-icon:#a4abbd;
-  --bg-titlebar-hover: rgba(255, 255, 255, 0.08);
+  --text-titlebar:     var(--text-primary);
+  --text-titlebar-icon:var(--text-secondary);
+  --bg-titlebar-hover: rgba(255, 255, 255, 0.04);
 
-  /* ---- Scrollbar (semi-transparent so it blends with any surface) ---- */
-  --scrollbar-thumb:       rgba(255, 255, 255, 0.10);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.22);
+  /* ---- Scrollbar ---- */
+  --scrollbar-thumb:       rgba(255, 255, 255, 0.06);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.10);
 
-  /* ---- Backward-compat aliases (legacy variable names) ----
-   * These keep the other 13 views rendering until they migrate. */
+  /* ---- Layout ---- */
+  --activity-w: 36px;
+  --sidebar-w:  220px;
+
+  /* ---- Backward-compat aliases ---- */
   --bg-primary:    var(--bg-canvas);
   --bg-secondary:  var(--bg-elevated);
   --card-bg:       var(--bg-surface);

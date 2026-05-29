@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="repos-view">
     <!-- 顶部：标题 + 横向 provider tab -->
     <header class="page-head">
@@ -1054,3 +1054,5 @@ watch(() => giteaStatus.value?.hasToken, (has) => {
   gap: 10px;
 }
 </style>
+
+

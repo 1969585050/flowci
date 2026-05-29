@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="dashboard">
     <div class="header">
       <div>
@@ -264,16 +264,16 @@ onMounted(refresh)
 </script>
 
 <style scoped>
-.dashboard { max-width: 1280px; }
+.dashboard { max-width: 1100px; }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-5);
 }
 h1 {
-  font-size: var(--text-3xl);
+  font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
   color: var(--text-primary);
   letter-spacing: -0.01em;
@@ -575,3 +575,5 @@ h1 {
   to { transform: rotate(360deg); }
 }
 </style>
+
+

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="deploy-view">
     <h1>容器部署</h1>
 
@@ -269,7 +269,7 @@ onMounted(() => {
 
 h1 {
   font-size: 28px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 24px;
 }
 
@@ -282,7 +282,7 @@ h1 {
 
 .card h3 {
   font-size: 18px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 16px;
 }
 
@@ -309,7 +309,7 @@ h1 {
 .form-group select,
 .form-group textarea {
   padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   font-size: 14px;
   background: var(--card-bg, white);
@@ -321,11 +321,11 @@ h1 {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-500);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -344,8 +344,8 @@ h1 {
 
 .btn-outline {
   background: transparent;
-  color: #667eea;
-  border: 2px solid #667eea;
+  color: var(--brand-500);
+  border: 2px solid var(--brand-500);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -355,7 +355,7 @@ h1 {
 }
 
 .btn-outline:hover {
-  background: #667eea;
+  background: var(--brand-500);
   color: white;
 }
 
@@ -371,8 +371,8 @@ h1 {
 .spinner-small {
   width: 24px;
   height: 24px;
-  border: 3px solid var(--border-color, #e0e0e0);
-  border-top-color: #667eea;
+  border: 3px solid var(--border-color, var(--border-default));
+  border-top-color: var(--brand-500);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-right: 12px;
@@ -391,7 +391,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  background: var(--bg-primary, #f8f9ff);
+  background: var(--bg-primary, var(--bg-surface));
   border-radius: 8px;
   margin-bottom: 12px;
 }
@@ -403,7 +403,7 @@ h1 {
 .container-name {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 4px;
 }
 
@@ -417,14 +417,14 @@ h1 {
 }
 
 .container-status.running {
-  color: #22c55e;
+  color: var(--success-fg);
 }
 
 .status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--success-fg);
 }
 
 .container-image {
@@ -443,17 +443,17 @@ h1 {
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  background: var(--border-color, #e0e0e0);
+  background: var(--border-color, var(--border-default));
   color: var(--text-primary, #333);
 }
 
 .btn-action:hover {
-  background: #d0d0d0;
+  background: var(--border-strong);
 }
 
 .btn-danger {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
 }
 
 .btn-danger:hover {
@@ -492,13 +492,13 @@ h1 {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--border-color, #f0f0f0);
+  border-bottom: 1px solid var(--border-color, var(--bg-surface));
 }
 
 .dialog-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
 }
 
 .close-btn {
@@ -524,8 +524,8 @@ h1 {
 }
 
 .log-content {
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: var(--bg-sunken);
+  color: var(--text-primary);
   padding: 16px;
   border-radius: 8px;
   font-size: 13px;
@@ -540,7 +540,7 @@ h1 {
   display: flex;
   justify-content: flex-end;
   padding: 12px 24px;
-  border-top: 1px solid var(--border-color, #f0f0f0);
+  border-top: 1px solid var(--border-color, var(--bg-surface));
 }
 
 .card-header-compact {
@@ -573,14 +573,14 @@ h1 {
 }
 
 .compose-preview {
-  background: #1e1e2e;
+  background: var(--bg-sunken);
   border-radius: 8px;
   padding: 16px;
   margin-top: 8px;
 }
 
 .compose-preview pre {
-  color: #a5b6cf;
+  color: var(--text-secondary);
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.5;
@@ -594,7 +594,7 @@ h1 {
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   transition: all 0.2s;
 }
@@ -603,3 +603,5 @@ h1 {
   transform: translateY(-1px);
 }
 </style>
+
+

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="build-view">
     <h1>镜像构建</h1>
 
@@ -224,7 +224,7 @@ onMounted(() => {
 
 h1 {
   font-size: 28px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 24px;
 }
 
@@ -238,7 +238,7 @@ h1 {
 
 .card h3 {
   font-size: 18px;
-  color: var(--text-primary, #1a1a2e);
+  color: var(--text-primary, var(--text-primary));
   margin-bottom: 16px;
 }
 
@@ -253,19 +253,19 @@ h1 {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .lang-card:hover {
-  border-color: #667eea;
-  background: #f8f9ff;
+  border-color: var(--brand-500);
+  background: var(--bg-surface);
 }
 
 .lang-card.active {
-  border-color: #667eea;
+  border-color: var(--brand-500);
   background: #f0f3ff;
 }
 
@@ -299,7 +299,7 @@ h1 {
 
 .form-group input {
   padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   font-size: 14px;
   background: var(--card-bg, white);
@@ -309,13 +309,13 @@ h1 {
 
 .form-group input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-500);
 }
 
 .project-select {
   width: 100%;
   padding: 12px;
-  border: 2px solid var(--border-color, #e0e0e0);
+  border: 2px solid var(--border-color, var(--border-default));
   border-radius: 8px;
   font-size: 14px;
   background: var(--card-bg, white);
@@ -325,7 +325,7 @@ h1 {
 
 .project-select:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--brand-500);
 }
 
 .form-options {
@@ -348,14 +348,14 @@ h1 {
 }
 
 .dockerfile-preview {
-  background: #1e1e2e;
+  background: var(--bg-sunken);
   border-radius: 8px;
   padding: 16px;
   margin-top: 12px;
 }
 
 .dockerfile-preview pre {
-  color: #a5b6cf;
+  color: var(--text-secondary);
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -365,8 +365,8 @@ h1 {
 
 .btn-outline {
   background: transparent;
-  color: #667eea;
-  border: 2px solid #667eea;
+  color: var(--brand-500);
+  border: 2px solid var(--brand-500);
   padding: 8px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -376,12 +376,12 @@ h1 {
 }
 
 .btn-outline:hover {
-  background: #667eea;
+  background: var(--brand-500);
   color: white;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
   color: white;
   border: none;
   padding: 12px 24px;
@@ -403,7 +403,7 @@ h1 {
 }
 
 .logs-container {
-  background: #1e1e2e;
+  background: var(--bg-sunken);
   border-radius: 8px;
   padding: 16px;
   max-height: 300px;
@@ -417,19 +417,21 @@ h1 {
 }
 
 .log-time {
-  color: #6b7089;
+  color: var(--text-muted);
   margin-right: 8px;
 }
 
 .log-text {
-  color: #a5b6cf;
+  color: var(--text-secondary);
 }
 
 .log-line.success .log-text {
-  color: #a6e3a1;
+  color: var(--success-fg);
 }
 
 .log-line.error .log-text {
-  color: #f38ba8;
+  color: var(--danger-fg);
 }
 </style>
+
+

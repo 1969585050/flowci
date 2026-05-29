@@ -43,7 +43,7 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 255, G: 255, B: 255, A: 255},
+		BackgroundColour: &options.RGBA{R: 43, G: 45, B: 47, A: 255},
 		// dev 频繁 rebuild 时窗口反复抢焦盖住 IDE → 启动时最小化到任务栏
 		WindowStartState: options.Minimised,
 		OnStartup:        func(ctx context.Context) { app.Startup(ctx) },
